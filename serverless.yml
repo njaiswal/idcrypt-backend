@@ -21,7 +21,7 @@ provider:
         - dynamodb:DeleteItem
       Resource:
         - { "Fn::GetAtt": ["AccountsDynamoDBTable", "Arn" ] }
-        - { "Fn::GetAtt": ["UserssDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
   environment:
     STAGE: ${opt:stage}
 
@@ -86,6 +86,16 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:custom.tableName.users}
+        GlobalSecondaryIndexes:
+          - IndexName: AccountIdIndex
+            KeySchema:
+              - AttributeName: accountId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: '5'
+              WriteCapacityUnits: '5'
 
 plugins:
   - serverless-python-requirements
