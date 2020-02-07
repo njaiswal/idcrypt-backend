@@ -1,2 +1,5 @@
 /.idea/
 /.lambda_env/
+/shared-local-instance.db
+/nohup.out
+/pidfile

@@ -1,7 +1,7 @@
 import logging
 import json
 from flask_restplus import abort
-from . import TABLE_NAME, PARTITION_KEY
+from . import PARTITION_KEY
 from .model import User
 from .schema import UserSchema
 from app import db
@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 class UserService:
     @staticmethod
     def get_by_id(userId: str):
+        table_name = db.table_names['users']
         logger.info('UserService get_by_id called')
-        table = db.dynamodb_resource.Table(TABLE_NAME)
+        table = db.dynamodb_resource.Table(table_name)
         get_response = table.get_item(
             Key={
                 PARTITION_KEY: userId
@@ -46,13 +47,14 @@ class UserService:
 
     @staticmethod
     def create(new_attrs: dict) -> User:
+        table_name = db.table_names['users']
         logger.debug('UserService create called')
         new_user = User(**new_attrs)
 
         # Validate with schema
         new_user_dict = UserSchema().dump(new_user)
 
-        table = db.dynamodb_resource.Table(TABLE_NAME)
+        table = db.dynamodb_resource.Table(table_name)
         put_response = table.put_item(
             Item=new_user_dict
         )

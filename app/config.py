@@ -10,14 +10,16 @@ class BaseConfig:
 class DevelopmentConfig(BaseConfig):
     CONFIG_NAME = "dev"
     SECRET_KEY = ""
-    DEBUG = True
+    DEBUG = True,
+    DYNAMODB_ENDPOINT_URL = "https://dynamodb.eu-west-1.amazonaws.com"
+    REGION_NAME = "eu-west-1"
 
 
 class TestingConfig(BaseConfig):
     CONFIG_NAME = "test"
     DEBUG = True
     TESTING = True
-    DYNAMODB_ENDPOINT_URL = "http://localhost:8000",
+    DYNAMODB_ENDPOINT_URL = "http://localhost:8000"
     REGION_NAME = "eu-west-1"
 
 

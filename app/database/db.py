@@ -12,10 +12,10 @@ class DB:
     region = None
     db_endpoint = None
     env = None
+    table_names: dict = {}
 
     def init(self, app):
-        # Why is this a tuple and not REGION_NAME? todo...
-        self.db_endpoint = app.config.get('DYNAMODB_ENDPOINT_URL')[0]
+        self.db_endpoint = app.config.get('DYNAMODB_ENDPOINT_URL')
         self.region = app.config.get('REGION_NAME')
         self.env = app.config.get('CONFIG_NAME')
         self.client = boto3.client('dynamodb',
@@ -26,6 +26,10 @@ class DB:
                                                 region_name=self.region,
                                                 endpoint_url=self.db_endpoint
                                                 )
+
+        # todo: Remove this hack and make it more flexible
+        self.table_names['accounts'] = 'Accounts-{}'.format(self.env)
+        self.table_names['users'] = 'Users-{}'.format(self.env)
 
         # Create Tables if not exists
         create_tables(env=self.env)

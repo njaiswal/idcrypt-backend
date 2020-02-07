@@ -17,7 +17,13 @@ def create_app(version="v1.0", env=None):
     from app.db_schema import create_tables
 
     app = Flask(__name__)
-    CORS(app, resource={r"/*": {"origins": "*"}})   # Todo: take this as configuration. in prod restrict to *.idcrypt.io
+
+    # Todo: take this as configuration. in prod restrict to *.idcrypt.io
+    CORS(app, resource={r"/*": {"origins": [
+        "https://*.idcrypt.io",
+        "https://idcrypt.io",
+        "http://localhost"
+    ]}})
 
     api = Api(
         app,
@@ -36,7 +42,8 @@ def create_app(version="v1.0", env=None):
     # Register routes
     register_routes(api)
 
-    @app.route("/health")
+    @ app.route("/health")
+
     def health():
         return jsonify("healthy")
 

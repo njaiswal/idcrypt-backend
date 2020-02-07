@@ -1,0 +1,91 @@
+service: idcrypt-backend
+
+custom:
+  tableName:
+    accounts: 'Accounts-${self:provider.stage}'
+    users: 'Users-${self:provider.stage}'
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'eu-west-1'}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["AccountsDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["UserssDynamoDBTable", "Arn" ] }
+  environment:
+    STAGE: ${opt:stage}
+
+functions:
+  idcryptBackend:
+    handler: backend.handler
+    events:
+      - http:
+          path: /
+          method: ANY
+          cors: true
+          authorizer:
+            name: authorizer
+            arn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+      - http:
+          path: /{proxy+}
+          method: ANY
+          authorizer:
+            name: authorizer
+            arn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+          cors:
+            origins:
+              - https://*.idcrypt.io
+              - https://idcrypt.io
+              - http://localhost
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+            allowCredentials: false
+
+resources:
+  Resources:
+    AccountsDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: accountId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: accountId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName.accounts}
+    UsersDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: accountId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName.users}
+
+plugins:
+  - serverless-python-requirements
