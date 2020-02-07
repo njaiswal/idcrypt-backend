@@ -16,7 +16,12 @@ phases:
       - pip install -r requirements.txt
   build:
     commands:
+      - nohup java -Djava.library.path=dynamodb_local_latest/DynamoDBLocal_lib/ -jar dynamodb_local_latest/DynamoDBLocal.jar -sharedDb & echo $! > pidfile
       - pytest test/
+      - kill $(cat pidfile)
+      - echo "------------------------Dynamodb Local run stdout-----------------------"
+      - cat nohup.out
+      - echo "------------------------------------------------------------------------"
 #      - ISO_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)
 #      - TMP_DIR="dist-$ISO_DATE"
 #      - mkdir $TMP_DIR
