@@ -9,6 +9,7 @@ phases:
       - apt-get update
       - npm install --silent --no-progress -g npm
       - npm install --silent --no-progress -g serverless@1.63.0
+      - serverless plugin install -n serverless-python-requirements
   pre_build:
     commands:
       - pip install virtualenv
