@@ -104,6 +104,9 @@ resources:
             ProvisionedThroughput:
               ReadCapacityUnits: '5'
               WriteCapacityUnits: '5'
+package:
+  exclude:
+    - .lambda_env/**
 
 plugins:
   - serverless-python-requirements

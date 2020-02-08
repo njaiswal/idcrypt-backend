@@ -5,3 +5,4 @@
 /pidfile
 /dynamodb_local_latest/run_local_dynamodb.sh
 /dynamodb_local_latest/shared-local-instance.db
+/node_modules/
