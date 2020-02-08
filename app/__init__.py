@@ -18,12 +18,12 @@ def create_app(version="v1.0", env=None):
 
     app = Flask(__name__)
 
-    # Todo: take this as configuration. in prod restrict to *.idcrypt.io
-    CORS(app, resource={r"/*": {"origins": [
-        "https://*.idcrypt.io",
-        "https://idcrypt.io",
-        "http://localhost"
-    ]}})
+    # In test and dev allow cors from localhost
+    cors_origins = [r'^https://(dev|qa|uat).idcrypt.io', 'https://idcrypt.io']
+    if env == 'test' or env == 'dev':
+        cors_origins.append('http://localhost:4200')
+
+    CORS(app, resource={r'/api/*'}, origins=cors_origins, supports_credentials=True)
 
     api = Api(
         app,
@@ -42,8 +42,7 @@ def create_app(version="v1.0", env=None):
     # Register routes
     register_routes(api)
 
-    @ app.route("/health")
-
+    @app.route("/health")
     def health():
         return jsonify("healthy")
 

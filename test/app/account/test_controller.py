@@ -26,10 +26,14 @@ def create_payload():
 class TestAccountResource:
     def test_post(self, client: FlaskClient):  # noqa
         payload = create_payload()
-        result = client.post(f"/api/{VERSION}/{BASE_ROUTE}/", json=payload).get_json()
-        logger.info('result: %s', result)
+        response: Response = client.post(f"/api/{VERSION}/{BASE_ROUTE}/", json=payload)
+        result = response.get_json()
+        response.headers
+        logger.info('response: %s', response)
         assert not DeepDiff(payload, result, ignore_order=True,
                             exclude_paths=["root['createdAt']", "root['accountId']"])
+        assert response.headers.get('Access-Control-Allow-Origin') == 'http://localhost:4200'
+        assert response.headers.get('Access-Control-Allow-Credentials') == 'true'
 
     def test_post_missing_required(self, client: FlaskClient):  # noqa
         payload = create_payload()

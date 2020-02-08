@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+
 import awsgi
 import app as idcrypt_app
 from logging.config import dictConfig
@@ -21,9 +23,13 @@ dictConfig({
 })
 
 VERSION = "v1.0"
-app = idcrypt_app.create_app()
+env = os.getenv('ENV', 'test')
+app = idcrypt_app.create_app(env=env)
+
+logging.getLogger(__name__).level = logging.DEBUG
 logger = logging.getLogger(__name__)
-logger.info("Application started.")
+
+logger.debug("Application started.")
 
 
 def handler(event, context):

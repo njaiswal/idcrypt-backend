@@ -4,10 +4,23 @@ custom:
   tableName:
     accounts: 'Accounts-${self:provider.stage}'
     users: 'Users-${self:provider.stage}'
+#  corsOrigins:
+#    dev:
+#      - https://dev.idcrypt.io
+#      - https://qa.idcrypt.io
+#      - http://localhost:4200
+#    qa:
+#      - https://dev.idcrypt.io
+#      - https://qa.idcrypt.io
+#      - http://localhost:4200
+#    uat:
+#      - https://uat.idcrypt.io
+#    prod:
+#      - https://idcrypt.io
 
 provider:
   name: aws
-  runtime: python3.8
+  runtime: python3.7
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'eu-west-1'}
   iamRoleStatements:
@@ -22,11 +35,18 @@ provider:
       Resource:
         - { "Fn::GetAtt": ["AccountsDynamoDBTable", "Arn" ] }
         - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
+    - Effect: Allow
+      Action:
+        - dynamodb:ListTables
+      Resource:
+        - Fn::Join: ["", [ "arn:aws:dynamodb:", { "Ref": "AWS::Region" }, ':', { Ref: "AWS::AccountId" }, ":table/*" ]]
   environment:
     STAGE: ${opt:stage}
 
 functions:
   idcryptBackend:
+    environment:
+      ENV: ${opt:stage, 'dev'}
     handler: backend.handler
     events:
       - http:
@@ -42,19 +62,7 @@ functions:
           authorizer:
             name: authorizer
             arn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
-          cors:
-            origins:
-              - https://*.idcrypt.io
-              - https://idcrypt.io
-              - http://localhost
-            headers:
-              - Content-Type
-              - X-Amz-Date
-              - Authorization
-              - X-Api-Key
-              - X-Amz-Security-Token
-              - X-Amz-User-Agent
-            allowCredentials: false
+          cors: true
 
 resources:
   Resources:
