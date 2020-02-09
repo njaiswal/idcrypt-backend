@@ -29,7 +29,7 @@ phases:
       - mkdir -p target/dev
       - mkdir target/qa
       - serverless package --package target/dev --stage dev -v -r eu-west-1
-      - serverless package --package target/prod --stage prod -v -r eu-west-1
+      - serverless package --package target/qa --stage qa -v -r eu-west-1
 
 #      - ISO_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)
 #      - TMP_DIR="dist-$ISO_DATE"
