@@ -1,0 +1,51 @@
+version: 0.2
+#env:
+#  variables:
+#    LAMBDA_NAME: "idcrypt-backend"
+#    BUCKET_NAME: "adrians-lambda-code-bucket"
+phases:
+  install:
+    commands:
+      - apt-get update
+      - npm install --silent --no-progress -g npm
+      - npm install --silent --no-progress -g serverless@1.63.0
+      - serverless plugin install -n serverless-python-requirements
+      - npm install serverless-domain-manager@3.3.1 --save-dev
+  pre_build:
+    commands:
+      - pip install virtualenv
+      - virtualenv env
+      - . env/bin/activate
+      - pip install -r requirements.txt
+  build:
+    commands:
+      - curl -LO https://s3.eu-central-1.amazonaws.com/dynamodb-local-frankfurt/dynamodb_local_latest.zip
+      - unzip dynamodb_local_latest.zip
+      - rm dynamodb_local_latest.zip
+      - nohup java -Djava.library.path=DynamoDBLocal_lib/ -jar DynamoDBLocal.jar -sharedDb & echo $! > pidfile
+      - pytest test/
+      - kill $(cat pidfile)
+      - rm -rf DynamoDBLocal_lib/
+      - rm DynamoDBLocal.jar
+      - mkdir -p target/dev
+      - mkdir target/qa
+      - serverless package --package target/dev --stage dev -v -r eu-west-1
+#      - serverless package --package target/qa --stage qa -v -r eu-west-1
+
+#      - ISO_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)
+#      - TMP_DIR="dist-$ISO_DATE"
+#      - mkdir $TMP_DIR
+#      - cp *.py $TMP_DIR
+#      - cp -rf app/ $TMP_DIR
+#      - cp -rf env/lib/python3.8/site-packages/* $TMP_DIR
+#      - cd $TMP_DIR; zip -r ../dist.zip *
+#      - cd ..
+#      -
+#      - aws s3 cp dist.zip s3://$BUCKET_NAME/$LAMBDA_NAME/dist.zip
+#      - aws lambda update-function-code --function-name $LAMBDA_NAME --s3-bucket $BUCKET_NAME --s3-key $LAMBDA_NAME/dist.zip --publish
+
+artifacts:
+  files:
+    - target/**/*
+    - serverless.yml
+    - deploy.sh

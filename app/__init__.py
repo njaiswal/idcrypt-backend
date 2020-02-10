@@ -17,7 +17,13 @@ def create_app(version="v1.0", env=None):
     from app.db_schema import create_tables
 
     app = Flask(__name__)
-    CORS(app, resource={r"/*": {"origins": "*"}})   # Todo: take this as configuration. in prod restrict to *.idcrypt.io
+
+    # In test and dev allow cors from localhost
+    cors_origins = [r'^https://(dev|qa|uat).idcrypt.io', 'https://idcrypt.io']
+    if env == 'test' or env == 'dev':
+        cors_origins.append('http://localhost:4200')
+
+    CORS(app, resource={r'/api/*'}, origins=cors_origins, supports_credentials=True)
 
     api = Api(
         app,

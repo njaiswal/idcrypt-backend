@@ -1,0 +1,142 @@
+service: idcrypt-backend
+
+# Also for time being creating certs same as domain name, if in future wildcard cert needs to be used we need to add
+# 'certificateName' under 'customDomain' section below.
+# Only dev.api.idcrypt.io has been added, for qa, uat, prod :
+
+#  Go to 'Route53'
+#  - First create a new hosted zone ENV.api.idcrypt.io of Type: Public Hosted Zone
+#  - Click into your hosted zone, and select the record set with type "NS"
+#  - Copy the nameservers in the "value" box on the right.
+#  - Return to original hosted zone of idcrypt.io.
+#  - Click 'Create Record Set' -> Name = 'ENV.api.idcrypt.io', Type = 'NS', Value = 'Paste value of nameservers'
+#
+#  Go to 'AWS Certificate Manager'
+#          -> Change region to N.Virginia (us-east-1) since serverless-domain-manager plugin only works in this region
+#             However once a cert is generated it can be used in any region's domain
+#     - Click 'Request a certificate'
+#            -> 'Request a public certificate' -> 'Request a Certificate'
+#            -> Domain name = ENV.api.idcrypt.io
+#            -> Select DNS validation method
+#            -> Click on button to auto create Route53 CNAME record
+#            -> Wait 10 mins for the cert to be issued.
+#  - Run 'sls create_domain' with --stage ENV
+#    Wait 20-30 mins for domain to be active
+custom:
+  tableName:
+    accounts: 'Accounts-${self:provider.stage}'
+    users: 'Users-${self:provider.stage}'
+  customDomain:
+    domainName: ${self:provider.stage}.api.idcrypt.io
+    basePath: ''
+    stage: ${self:provider.stage}
+    createRoute53Record: true
+
+#  corsOrigins:
+#    dev:
+#      - https://dev.idcrypt.io
+#      - https://qa.idcrypt.io
+#      - http://localhost:4200
+#    qa:
+#      - https://dev.idcrypt.io
+#      - https://qa.idcrypt.io
+#      - http://localhost:4200
+#    uat:
+#      - https://uat.idcrypt.io
+#    prod:
+#      - https://idcrypt.io
+
+provider:
+  name: aws
+  runtime: python3.7
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'eu-west-1'}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["AccountsDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
+    - Effect: Allow
+      Action:
+        - dynamodb:ListTables
+      Resource:
+        - Fn::Join: ["", [ "arn:aws:dynamodb:", { "Ref": "AWS::Region" }, ':', { Ref: "AWS::AccountId" }, ":table/*" ]]
+  environment:
+    STAGE: ${opt:stage}
+
+functions:
+  idcryptBackend:
+    environment:
+      ENV: ${opt:stage, 'dev'}
+    handler: backend.handler
+    events:
+      - http:
+          path: /
+          method: ANY
+          cors: true
+          authorizer:
+            name: authorizer
+            arn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+      - http:
+          path: /{proxy+}
+          method: ANY
+          authorizer:
+            name: authorizer
+            arn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+          cors: true
+
+resources:
+  Resources:
+    AccountsDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: accountId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: accountId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName.accounts}
+    UsersDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: accountId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName.users}
+        GlobalSecondaryIndexes:
+          - IndexName: AccountIdIndex
+            KeySchema:
+              - AttributeName: accountId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: '5'
+              WriteCapacityUnits: '5'
+package:
+  exclude:
+    - .lambda_env/**
+
+plugins:
+  - serverless-python-requirements
+  - serverless-domain-manager
+

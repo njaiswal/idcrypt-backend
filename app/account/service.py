@@ -1,7 +1,7 @@
 import logging
 import json
 from flask_restplus import abort
-from . import TABLE_NAME, PARTITION_KEY
+from . import PARTITION_KEY
 from .model import Account
 from .schema import AccountSchema
 from app import db
@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 class AccountService:
     @staticmethod
     def get_by_id(accountId: str):
+        table_name = db.table_names['accounts']
         logger.info('AccountService get_by_id called')
-        table = db.dynamodb_resource.Table(TABLE_NAME)
+        table = db.dynamodb_resource.Table(table_name)
         get_response = table.get_item(
             Key={
                 PARTITION_KEY: accountId
@@ -46,13 +47,14 @@ class AccountService:
 
     @staticmethod
     def create(new_attrs: dict) -> Account:
+        table_name = db.table_names['accounts']
         logger.debug('AccountService create called')
         new_account = Account(**new_attrs)
 
         # Validate with schema
         new_account_dict = AccountSchema().dump(new_account)
 
-        table = db.dynamodb_resource.Table(TABLE_NAME)
+        table = db.dynamodb_resource.Table(table_name)
         put_response = table.put_item(
             Item=new_account_dict
         )
