@@ -1,7 +1,7 @@
 version: 0.2
-env:
-  variables:
-    LAMBDA_NAME: "idcrypt-backend"
+#env:
+#  variables:
+#    LAMBDA_NAME: "idcrypt-backend"
 #    BUCKET_NAME: "adrians-lambda-code-bucket"
 phases:
   install:
@@ -10,6 +10,7 @@ phases:
       - npm install --silent --no-progress -g npm
       - npm install --silent --no-progress -g serverless@1.63.0
       - serverless plugin install -n serverless-python-requirements
+      - npm install serverless-domain-manager@3.3.1 --save-dev
   pre_build:
     commands:
       - pip install virtualenv
@@ -29,7 +30,7 @@ phases:
       - mkdir -p target/dev
       - mkdir target/qa
       - serverless package --package target/dev --stage dev -v -r eu-west-1
-      - serverless package --package target/qa --stage qa -v -r eu-west-1
+#      - serverless package --package target/qa --stage qa -v -r eu-west-1
 
 #      - ISO_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)
 #      - TMP_DIR="dist-$ISO_DATE"

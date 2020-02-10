@@ -1,9 +1,37 @@
 service: idcrypt-backend
 
+# Also for time being creating certs same as domain name, if in future wildcard cert needs to be used we need to add
+# 'certificateName' under 'customDomain' section below.
+# Only dev.api.idcrypt.io has been added, for qa, uat, prod :
+
+#  Go to 'Route53'
+#  - First create a new hosted zone ENV.api.idcrypt.io of Type: Public Hosted Zone
+#  - Click into your hosted zone, and select the record set with type "NS"
+#  - Copy the nameservers in the "value" box on the right.
+#  - Return to original hosted zone of idcrypt.io.
+#  - Click 'Create Record Set' -> Name = 'ENV.api.idcrypt.io', Type = 'NS', Value = 'Paste value of nameservers'
+#
+#  Go to 'AWS Certificate Manager'
+#          -> Change region to N.Virginia (us-east-1) since serverless-domain-manager plugin only works in this region
+#             However once a cert is generated it can be used in any region's domain
+#     - Click 'Request a certificate'
+#            -> 'Request a public certificate' -> 'Request a Certificate'
+#            -> Domain name = ENV.api.idcrypt.io
+#            -> Select DNS validation method
+#            -> Click on button to auto create Route53 CNAME record
+#            -> Wait 10 mins for the cert to be issued.
+#  - Run 'sls create_domain' with --stage ENV
+#    Wait 20-30 mins for domain to be active
 custom:
   tableName:
     accounts: 'Accounts-${self:provider.stage}'
     users: 'Users-${self:provider.stage}'
+  customDomain:
+    domainName: ${self:provider.stage}.api.idcrypt.io
+    basePath: ''
+    stage: ${self:provider.stage}
+    createRoute53Record: true
+
 #  corsOrigins:
 #    dev:
 #      - https://dev.idcrypt.io
@@ -110,3 +138,5 @@ package:
 
 plugins:
   - serverless-python-requirements
+  - serverless-domain-manager
+
