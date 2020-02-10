@@ -22,7 +22,7 @@
         "cloudformation:UpdateStack"
       ],
       "Resource": [
-        "arn:aws:cloudformation:eu-west-1:*:stack/idcrypt-backend-dev/*"
+        "arn:aws:cloudformation:*:*:stack/idcrypt-backend-*/*"
       ]
     },
     {
@@ -75,7 +75,7 @@
         "lambda:Update*"
       ],
       "Resource": [
-        "arn:aws:lambda:eu-west-1:*:function:idcrypt-backend-dev-*"
+        "arn:aws:lambda:*:*:function:idcrypt-backend-*-*"
       ]
     },
     {
@@ -90,7 +90,8 @@
       "Resource": [
         "arn:aws:apigateway:*::/restapis*",
         "arn:aws:apigateway:*::/apikeys*",
-        "arn:aws:apigateway:*::/usageplans*"
+        "arn:aws:apigateway:*::/usageplans*",
+        "arn:aws:apigateway:*::/domainnames*"
       ]
     },
     {
@@ -112,14 +113,14 @@
         "iam:DeleteRole"
       ],
       "Resource": [
-        "arn:aws:iam::*:role/idcrypt-backend-dev-eu-west-1-lambdaRole"
+        "arn:aws:iam::*:role/idcrypt-backend-*-*-lambdaRole"
       ]
     },
     {
       "Effect": "Allow",
       "Action": "sqs:*",
       "Resource": [
-        "arn:aws:sqs:*:*:idcrypt-backend-dev-eu-west-1"
+        "arn:aws:sqs:*:*:idcrypt-backend-*-*"
       ]
     },
     {
@@ -138,7 +139,7 @@
         "logs:DeleteLogGroup"
       ],
       "Resource": [
-        "arn:aws:logs:eu-west-1:*:*"
+        "arn:aws:logs:*:*:*"
       ],
       "Effect": "Allow"
     },
@@ -147,7 +148,7 @@
         "logs:PutLogEvents"
       ],
       "Resource": [
-        "arn:aws:logs:eu-west-1:*:*"
+        "arn:aws:logs:*:*:*"
       ],
       "Effect": "Allow"
     },
@@ -170,7 +171,7 @@
         "events:Delete*"
       ],
       "Resource": [
-        "arn:aws:events:*:*:rule/idcrypt-backend-dev-eu-west-1"
+        "arn:aws:events:*:*:rule/idcrypt-backend-*-*"
       ]
     },
     {
@@ -179,7 +180,7 @@
         "events:DescribeRule"
       ],
       "Resource": [
-        "arn:aws:events:eu-west-1:*:rule/idcrypt-backend-dev-*"
+        "arn:aws:events:*:*:rule/idcrypt-backend-*-*"
       ]
     },
     {
@@ -189,6 +190,15 @@
       ],
       "Resource": [
         "arn:aws:dynamodb:*:*:table/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::*"
       ]
     }
   ]
