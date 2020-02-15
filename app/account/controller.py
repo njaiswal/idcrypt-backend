@@ -24,9 +24,12 @@ class AccountResource(Resource):
     @responds(schema=AccountSchema)
     def post(self):
         """Create a Single Account"""
+        # Validate with schema
+        new_account_schema = NewAccountSchema()
+        new_account = new_account_schema.load(api.payload)
 
         cognito_user = get_cognito_user(request)
-        return AccountService.create(request.parsed_obj, cognito_user=cognito_user)
+        return AccountService.create(new_account, cognito_user=cognito_user)
 
 
 @api.route("/<string:account_id>")

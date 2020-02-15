@@ -1,5 +1,7 @@
 from marshmallow import fields, Schema, validate, post_load
 
+from app.account.model import NewAccount
+
 
 class AccountSchema(Schema):
     """Account schema"""
@@ -30,3 +32,7 @@ class NewAccountSchema(Schema):
     class Meta:
         fields = ["name"]
         ordered = True
+
+    @post_load
+    def create_new_account(self, data, **kwarg):
+        return NewAccount(**data)
