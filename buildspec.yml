@@ -28,6 +28,7 @@ phases:
 #      - nohup java -Djava.library.path=DynamoDBLocal_lib/ -jar DynamoDBLocal.jar -sharedDb & echo $! > pidfile
       - sls dynamodb install
       - nohup sls dynamodb start --stage test & echo $! > pidfile
+      - sleep 10
 #      - pytest test/
       - behave test-integration/features/
       - kill $(cat pidfile)
