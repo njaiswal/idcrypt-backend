@@ -26,6 +26,7 @@ phases:
 #      - unzip dynamodb_local_latest.zip
 #      - rm dynamodb_local_latest.zip
 #      - nohup java -Djava.library.path=DynamoDBLocal_lib/ -jar DynamoDBLocal.jar -sharedDb & echo $! > pidfile
+      - sls dynamodb install
       - nohup sls dynamodb start --stage test & echo $! > pidfile
 #      - pytest test/
       - behave test-integration/features/
