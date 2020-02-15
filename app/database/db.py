@@ -3,8 +3,6 @@ import botocore
 from boto3 import dynamodb
 from botocore.client import BaseClient
 
-from app.db_schema import create_tables
-
 
 class DB:
     client: botocore.client = None
@@ -31,5 +29,3 @@ class DB:
         self.table_names['accounts'] = 'Accounts-{}'.format(self.env)
         self.table_names['users'] = 'Users-{}'.format(self.env)
 
-        # Create Tables if not exists
-        create_tables(env=self.env)

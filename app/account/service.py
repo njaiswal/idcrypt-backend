@@ -1,10 +1,15 @@
 import logging
 import json
+
+from boto3.dynamodb.conditions import Key
 from flask_restplus import abort
+from flask_restplus._http import HTTPStatus
+
 from . import PARTITION_KEY
-from .model import Account
+from .model import Account, NewAccount
 from .schema import AccountSchema
 from app import db
+from ..cognito.cognitoUser import CognitoUser
 
 logger = logging.getLogger(__name__)
 
@@ -15,46 +20,79 @@ class AccountService:
         table_name = db.table_names['accounts']
         logger.info('AccountService get_by_id called')
         table = db.dynamodb_resource.Table(table_name)
-        get_response = table.get_item(
+        resp = table.get_item(
             Key={
                 PARTITION_KEY: accountId
             },
             ConsistentRead=True
         )
 
-        # logger.info('get_response: {}'.format(json.dumps(get_response, indent=4, sort_keys=True)))
-        if 'Item' in get_response:
-            return get_response['Item']
+        if 'Item' in resp:
+            logger.info('get_by_id: {} returned a Item'.format(accountId))
+            return resp['Item']
         else:
-            abort(404, 'Account ID not found')
-
-    # @staticmethod
-    # def update(account: Account, Widget_change_updates: WidgetInterface) -> Widget:
-    #     # widget.update(Widget_change_updates)
-    #     # db.session.commit()
-    #     print('AccountService update called')
-    #     # return widget
-    #     return None
-    #
-    # @staticmethod
-    # def delete_by_id(widget_id: int) -> List[int]:
-    #     widget = Widget.query.filter(Widget.widget_id == widget_id).first()
-    #     if not widget:
-    #         return []
-    #     db.session.delete(widget)
-    #     db.session.commit()
-    #     return [widget_id]
+            logger.error('get_by_id: {} returned None'.format(accountId))
+            return None
 
     @staticmethod
-    def create(new_attrs: dict) -> Account:
+    def update(accountId: str, key: str, value: str) -> None:
+        table_name = db.table_names['accounts']
+        logger.info('AccountService update called')
+        table = db.dynamodb_resource.Table(table_name)
+
+        resp = table.update_item(
+            Key={
+                PARTITION_KEY: accountId
+            },
+            UpdateExpression='set {} = :v'.format('#st' if key == 'status' else key),
+            ExpressionAttributeValues={':v': value},
+            ReturnValues='NONE',
+            ExpressionAttributeNames={'#st': 'status'}  # status is reserved Dynamodb keyword
+        )
+
+        logger.info('Account update for accountId={} returned update_response: {}'.format(accountId, json.dumps(resp)))
+
+    @staticmethod
+    def create(new_account: NewAccount, cognito_user: CognitoUser = None) -> Account:
+        if cognito_user is None:
+            abort(HTTPStatus.INTERNAL_SERVER_ERROR, 'Authenticated user required')
+
         table_name = db.table_names['accounts']
         logger.debug('AccountService create called')
+
+        new_attrs: dict = {'name': new_account.name,
+                           'owner': cognito_user.sub,
+                           'email': cognito_user.email,
+                           'status': 'active',
+                           'tier': 'free'
+                           }
+
         new_account = Account(**new_attrs)
 
         # Validate with schema
         new_account_dict = AccountSchema().dump(new_account)
-
         table = db.dynamodb_resource.Table(table_name)
+
+        # Verify that no other account with same name exists
+        resp = table.query(
+            IndexName='AccountNameIndex',
+            KeyConditionExpression=Key('name').eq(new_account.name),
+            Select='COUNT'
+        )
+        if resp['Count'] != 0:
+            abort(HTTPStatus.EXPECTATION_FAILED,
+                  'Account name \'{}\' already exists. Please choose another name.'.format(new_account.name))
+
+        # Verify that a only one account per-owner can be created
+        resp = table.query(
+            IndexName='AccountOwnerIndex',
+            KeyConditionExpression=Key('owner').eq(new_account.owner),
+            Select='COUNT'
+        )
+        if resp['Count'] != 0:
+            abort(HTTPStatus.EXPECTATION_FAILED, 'You are already marked as owner of another account.')
+
+        # Create Account
         put_response = table.put_item(
             Item=new_account_dict
         )

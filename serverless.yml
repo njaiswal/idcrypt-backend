@@ -31,6 +31,23 @@ custom:
     basePath: ''
     stage: ${self:provider.stage}
     createRoute53Record: true
+  wsgi:
+    app: backend.app
+    packRequirements: false
+    pythonBin: python3
+  pythonRequirements:
+    dockerizePip: false
+  dynamodb:
+    stages:
+      - test
+    start:
+      port: 8000
+      inMemory: true
+      heapInitial: 200m
+      heapMax: 1g
+      migrate: true
+      seed: true
+      convertEmptyValues: true
 
 #  corsOrigins:
 #    dev:
@@ -62,7 +79,6 @@ provider:
         - dynamodb:DeleteItem
       Resource:
         - { "Fn::GetAtt": ["AccountsDynamoDBTable", "Arn" ] }
-        - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
     - Effect: Allow
       Action:
         - dynamodb:ListTables
@@ -75,7 +91,7 @@ functions:
   idcryptBackend:
     environment:
       ENV: ${opt:stage, 'dev'}
-    handler: backend.handler
+    handler: wsgi_handler.handler
     events:
       - http:
           path: /
@@ -100,6 +116,12 @@ resources:
         AttributeDefinitions:
           - AttributeName: accountId
             AttributeType: S
+          - AttributeName: name
+            AttributeType: S
+          - AttributeName: domain
+            AttributeType: S
+          - AttributeName: owner
+            AttributeType: S
         KeySchema:
           - AttributeName: accountId
             KeyType: HASH
@@ -107,36 +129,48 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:custom.tableName.accounts}
-    UsersDynamoDBTable:
-      Type: 'AWS::DynamoDB::Table'
-      Properties:
-        AttributeDefinitions:
-          - AttributeName: userId
-            AttributeType: S
-          - AttributeName: accountId
-            AttributeType: S
-        KeySchema:
-          - AttributeName: userId
-            KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-        TableName: ${self:custom.tableName.users}
         GlobalSecondaryIndexes:
-          - IndexName: AccountIdIndex
+          - IndexName: AccountNameIndex
             KeySchema:
-              - AttributeName: accountId
+              - AttributeName: name
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
             ProvisionedThroughput:
-              ReadCapacityUnits: '5'
-              WriteCapacityUnits: '5'
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+          - IndexName: AccountDomainIndex
+            KeySchema:
+              - AttributeName: domain
+                KeyType: HASH
+            Projection:
+              NonKeyAttributes:
+                - name
+                - email
+                - createdAt
+              ProjectionType: INCLUDE
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+          - IndexName: AccountOwnerIndex
+            KeySchema:
+              - AttributeName: owner
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+
 package:
   exclude:
     - .lambda_env/**
+    - .dynamodb/**
+    - .pytest_cache/**
 
 plugins:
   - serverless-python-requirements
   - serverless-domain-manager
-
+  - serverless-offline
+  - serverless-dynamodb-local
+  - serverless-wsgi

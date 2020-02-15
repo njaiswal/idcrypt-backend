@@ -2,18 +2,24 @@ import uuid
 from datetime import datetime
 
 
-class Account:  # type: ignore
+class Account:
     """An Account"""
 
-    def __init__(self, name, address, email, status, tier):
-        self.accountId = uuid.uuid4()
+    def __init__(self, name, email, status, tier, address=None, owner=None, accountId=None, createdAt=None,
+                 domain=None):
+        self.accountId = uuid.uuid4() if accountId is None else accountId
         self.name = name
+        self.domain = email.split('@')[1] if domain is None else domain
+        self.owner = owner
         self.address = address
         self.email = email
         self.status = status
         self.tier = tier
-        self.createdAt = datetime.now()
+        self.createdAt = datetime.now() if createdAt is None else createdAt
 
-    def with_account_id(self, accountId):
-        self.accountId = accountId
-        return self
+
+class NewAccount(object):
+    """New Account"""
+
+    def __init__(self, name):
+        self.name = name

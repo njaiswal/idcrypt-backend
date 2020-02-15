@@ -7,3 +7,4 @@
 /dynamodb_local_latest/shared-local-instance.db
 /node_modules/
 /.serverless/
+/.dynamodb/

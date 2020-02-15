@@ -1,20 +1,15 @@
-import resource
-from botocore.client import BaseClient
-from flask import Flask, jsonify, Blueprint
-from flask_restplus import Api
-import boto3
-import logging
+from flask import Flask
+from flask_restplus import Api, abort
+from webargs.flaskparser import parser
 from app.database.db import DB
 from flask_cors import CORS
 
-logger = logging.getLogger(__name__)
 db = DB()
 
 
 def create_app(version="v1.0", env=None):
     from app.routes import register_routes
     from app.config import config_by_name
-    from app.db_schema import create_tables
 
     app = Flask(__name__)
 
@@ -42,8 +37,13 @@ def create_app(version="v1.0", env=None):
     # Register routes
     register_routes(api)
 
-    @app.route("/health")
-    def health():
-        return jsonify("healthy")
-
     return app
+
+
+# This error handler is necessary for usage with Flask-RESTful
+@parser.error_handler
+def handle_request_parsing_error(error, req, schema, status_code, headers):
+    """webargs error handler that uses Flask-RESTful's abort function to return
+    a JSON error response to the client.
+    """
+    abort(422, errors=error.messages)

@@ -1,9 +1,14 @@
+from http import HTTPStatus
 from flask import request
 from flask_accepts import accepts, responds
-from flask_restplus import Namespace, Resource
+from flask_restplus import Namespace, Resource, abort
+from webargs import fields, validate
+from webargs.flaskparser import use_args
 from .model import Account
-from .schema import AccountSchema
+from .schema import AccountSchema, NewAccountSchema
 from .service import AccountService
+from ..authorization import verify_impersonation, Action
+from ..utils import get_cognito_user
 
 api = Namespace(
     name='account',
@@ -15,35 +20,52 @@ api = Namespace(
 class AccountResource(Resource):
     """Account"""
 
-    @accepts(schema=AccountSchema, api=api)
+    @accepts(schema=NewAccountSchema, api=api)
     @responds(schema=AccountSchema)
     def post(self):
         """Create a Single Account"""
 
-        return AccountService.create(request.parsed_obj)
+        cognito_user = get_cognito_user(request)
+        return AccountService.create(request.parsed_obj, cognito_user=cognito_user)
 
 
 @api.route("/<string:account_id>")
 @api.param("account_id", "Account ID")
 class AccountIdResource(Resource):
+    # @responds(schema=AccountSchema)
+    # def get(self, account_id: str) -> Account:
+    #     """Get Single Account"""
+    #
+    #     account = AccountService.get_by_id(account_id)
+    #     if account is None:
+    #         abort(404, 'Account Id not found')
+
+    @use_args({"status": fields.Str(required=False, location="query", validate=validate.OneOf(["active", "inactive"]))})
+    @api.doc(params={'status': 'New status: active|inactive'})
     @responds(schema=AccountSchema)
-    def get(self, account_id: str) -> Account:
-        """Get Single Account"""
+    def put(self, args: dict,  account_id: str) -> Account:
+        """Update Single Account"""
 
-        return AccountService.get_by_id(account_id)
+        # Make sure we understand the account update call
+        if 'status' not in args:
+            abort(HTTPStatus.BAD_REQUEST, 'Invalid account update.')
 
-    # def delete(self, widgetId: int) -> Response:
-    #     """Delete Single Widget"""
-    #     from flask import jsonify
-    #
-    #     id = WidgetService.delete_by_id(widgetId)
-    #     return jsonify(dict(status="Success", id=id))
-    #
-    # @accepts(schema=WidgetSchema, api=api)
-    # @responds(schema=WidgetSchema)
-    # def put(self, widgetId: int) -> Widget:
-    #     """Update Single Widget"""
-    #
-    #     changes: WidgetInterface = request.parsed_obj
-    #     Widget = WidgetService.get_by_id(widgetId)
-    #     return WidgetService.update(Widget, changes)
+        # Make sure that the account id is present
+        account_dict = AccountService.get_by_id(account_id)
+        if account_dict is None:
+            abort(404, 'Account Id not found.')
+        account: Account = Account(**account_dict)
+
+        # Make sure that the user can update this account. Only owners can update account
+        verify_impersonation(request, action=Action.UPDATE_ACCOUNT, args=args, account=account)
+
+        # Make sure that its a valid update that changes the state
+        if 'status' in args and account.status == args['status']:
+            abort(HTTPStatus.BAD_REQUEST, 'Status is already set to {}.'.format(args['status']))
+
+        # Finally do the update one attribute a time
+        for k, v in args.items():
+            AccountService.update(account_id, k, v)
+
+        # Return updated account back
+        return AccountService.get_by_id(account_id);
