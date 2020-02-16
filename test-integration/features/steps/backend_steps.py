@@ -29,11 +29,8 @@ def get(context, user):
 @when(u'i GET "{uri}"')
 def get(context, uri):
     url = '{}{}'.format(base_url, uri)
-    headers = {'requestContext': context.auth_header}
-    log_request_info(method='GET', url=url, REMOTE_USER=context.auth_header, body=None)
 
-    response = context.client.get(url, environ_base={'REMOTE_USER': context.auth_header})
-    log_response_info(response)
+    response = context.client.get(url, environ_base={'API_GATEWAY_AUTHORIZER': context.auth_header})
     assert response
     context.response = response
 
@@ -46,12 +43,9 @@ def create_new_account_without_name(context):
 @step(u'i create a new account with name {accountName}')
 def create_new_account(context, accountName):
     url = '{}{}'.format(base_url, '/account/')
-    headers = {'requestContext': context.auth_header}
     payload = dict(name=accountName)
-    log_request_info(method='GET', url=url, REMOTE_USER=context.auth_header, body=payload)
 
-    response = context.client.post(url, environ_base={'REMOTE_USER': context.auth_header}, json=payload)
-    log_response_info(response)
+    response = context.client.post(url, environ_base={'API_GATEWAY_AUTHORIZER': context.auth_header}, json=payload)
     assert response
 
     assert response.headers.get('Access-Control-Allow-Origin') == 'http://localhost:4200'
@@ -64,11 +58,8 @@ def update_account_with_queryParam(context, accountName, queryParam):
     accountId = get_account_id_by_name(accountName)
 
     url = '{}{}/{}?{}'.format(base_url, '/account', accountId, queryParam)
-    headers = {'requestContext': context.auth_header}
-    log_request_info(method='GET', url=url, REMOTE_USER=context.auth_header,)
 
-    response = context.client.put(url, environ_base={'REMOTE_USER': context.auth_header})
-    log_response_info(response)
+    response = context.client.put(url, environ_base={'API_GATEWAY_AUTHORIZER': context.auth_header})
     assert response
 
     assert response.headers.get('Access-Control-Allow-Origin') == 'http://localhost:4200'
@@ -89,11 +80,7 @@ def update_account_id(context, action, accountId):
     status = 'inactive' if action == 'deactivate' else 'active'
 
     url = '{}{}/{}?status={}'.format(base_url, '/account', accountId, status)
-    headers = {'requestContext': context.auth_header}
-    log_request_info(method='GET', url=url, REMOTE_USER=context.auth_header)
-
-    response = context.client.put(url, environ_base={'REMOTE_USER': context.auth_header})
-    log_response_info(response)
+    response = context.client.put(url, environ_base={'API_GATEWAY_AUTHORIZER': context.auth_header})
     assert response
     context.response = response
 
@@ -116,13 +103,11 @@ def response_status_code(context, code):
 def get_fake_auth_headers(email: str):
     return json.dumps(
         {
-            'authorizer': {
-                'claims': {
-                    'cognito:username': email.split('@')[0],
-                    'email': email,
-                    'email_verified': 'true',
-                    'sub': hashlib.md5(email.encode()).hexdigest()
-                }
+            'claims': {
+                'cognito:username': email.split('@')[0],
+                'email': email,
+                'email_verified': 'true',
+                'sub': hashlib.md5(email.encode()).hexdigest()
             }
         })
 
@@ -138,29 +123,3 @@ def get_account_id_by_name(accountName):
     assert_that(len(resp['Items']), is_not(0))
 
     return resp['Items'][0]['accountId']
-
-
-# When running tests following methods from flask app are not invoked. Hence copying them over here.
-def log_request_info(method=None, REMOTE_USER=None, url=None, headers={}, body=None):
-    headers_to_log = []
-    for k, v in headers.items():
-        if k != 'Authorization':
-            headers_to_log.append('{}={}'.format(k, v))
-        else:
-            headers_to_log.append('{}=***redacted***'.format(k))
-
-    logger.debug('Request Url:'.ljust(25) + '{}: {}'.format(method, url))
-    logger.debug('Request Headers:'.ljust(25) + " # ".join(headers_to_log))
-    logger.debug('REMOTE_USER:'.ljust(25) + REMOTE_USER)
-    logger.debug('Request Body:'.ljust(25) + str(body))
-
-
-def log_response_info(response):
-    headers_to_log = []
-    for k, v in response.headers.items():
-        headers_to_log.append('{}={}'.format(k, v))
-
-    logger.debug('Response Status:'.ljust(25) + response.status)
-    logger.debug('Response Headers:'.ljust(25) + " # ".join(headers_to_log))
-    logger.debug('Response Body:'.ljust(25) + str(response.get_data()))
-    return response

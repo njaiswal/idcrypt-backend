@@ -41,10 +41,10 @@ def log_request_info():
         else:
             headers_to_log.append('{}=***redacted***'.format(k))
 
-    logger.debug('Request REMOTE_USER:'.ljust(25) + json.dumps(request.environ['REMOTE_USER']))
-    logger.debug('Request Url:'.ljust(25) + '{}: {}'.format(request.method, request.url))
-    logger.debug('Request Headers:'.ljust(25) + " # ".join(headers_to_log))
-    logger.debug('Request Body:'.ljust(25) + str(request.get_data()))
+    logger.info('Request API_GATEWAY_AUTHORIZER:'.ljust(35) + json.dumps(request.environ['API_GATEWAY_AUTHORIZER'], default=str))
+    logger.info('Request Url:'.ljust(35) + '{}: {}'.format(request.method, request.url))
+    logger.info('Request Headers:'.ljust(35) + " # ".join(headers_to_log))
+    logger.info('Request Body:'.ljust(35) + str(request.get_data()))
 
 
 @app.after_request
@@ -54,11 +54,11 @@ def after(response):
         headers_to_log.append('{}={}'.format(k, v))
 
     try:
-        logger.debug('Response Status:'.ljust(25) + response.status)
-        logger.debug('Response Headers:'.ljust(25) + " # ".join(headers_to_log))
-        logger.debug('Response Body:'.ljust(25) + str(response.get_data()))
-    except:
-        logger.error('Could not log response due to exception')
+        logger.info('Response Status:'.ljust(25) + response.status)
+        logger.info('Response Headers:'.ljust(25) + " # ".join(headers_to_log))
+        logger.info('Response Body:'.ljust(25) + str(response.get_data()))
+    except Exception as e:
+        logger.error('Could not log response due to exception: {}'.format(e))
     return response
 
 # def handler(event, context):
