@@ -2,6 +2,8 @@ import json
 
 from flask_restplus import abort
 import logging
+import pprint
+
 
 from app.cognito.cognitoUser import CognitoUser
 
@@ -13,6 +15,7 @@ def get_cognito_user(flask_request):
     # "REMOTE_USER": event[u"requestContext"]
     # Refer: https://github.com/logandk/serverless-wsgi/blob/master/serverless_wsgi.py#L134
 
+    pprint.pprint(flask_request.environ)
     if 'REMOTE_USER' not in flask_request.environ:
         abort(message='Authentication error: XR')
 

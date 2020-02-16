@@ -56,3 +56,4 @@ artifacts:
     - target/**/*
     - serverless.yml
     - deploy.sh
+    - .env/**
