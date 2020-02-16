@@ -17,8 +17,8 @@ phases:
   pre_build:
     commands:
       - pip install virtualenv
-      - virtualenv .env
-      - . .env/bin/activate
+      - virtualenv env
+      - . env/bin/activate
       - pip install -r requirements.txt
   build:
     commands:
@@ -28,7 +28,6 @@ phases:
 #      - nohup java -Djava.library.path=DynamoDBLocal_lib/ -jar DynamoDBLocal.jar -sharedDb & echo $! > pidfile
       - sls dynamodb install
       - nohup sls dynamodb start --stage test & echo $! > pidfile
-      - sleep 30
 #      - pytest test/
       - behave test-integration/features/
       - kill $(cat pidfile)
@@ -56,4 +55,3 @@ artifacts:
     - target/**/*
     - serverless.yml
     - deploy.sh
-    - .env/**

@@ -101,15 +101,14 @@ def response_status_code(context, code):
 
 
 def get_fake_auth_headers(email: str):
-    return json.dumps(
-        {
-            'claims': {
-                'cognito:username': email.split('@')[0],
-                'email': email,
-                'email_verified': 'true',
-                'sub': hashlib.md5(email.encode()).hexdigest()
-            }
-        })
+    return {
+        'claims': {
+            'cognito:username': email.split('@')[0],
+            'email': email,
+            'email_verified': 'true',
+            'sub': hashlib.md5(email.encode()).hexdigest()
+        }
+    }
 
 
 def get_account_id_by_name(accountName):

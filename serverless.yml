@@ -168,6 +168,7 @@ package:
     - .dynamodb/**
     - .pytest_cache/**
     - node_modules/**
+    - env/**
 
 plugins:
   - serverless-python-requirements

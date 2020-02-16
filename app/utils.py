@@ -18,7 +18,7 @@ def get_cognito_user(flask_request):
     if 'API_GATEWAY_AUTHORIZER' not in flask_request.environ:
         abort(message='Authentication error: XA')
 
-    authorizer = json.loads(flask_request.environ['API_GATEWAY_AUTHORIZER'])
+    authorizer = flask_request.environ['API_GATEWAY_AUTHORIZER']
 
     if 'claims' not in authorizer:
         abort(message='Authentication error: XC')
