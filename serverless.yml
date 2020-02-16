@@ -167,6 +167,7 @@ package:
     - .lambda_env/**
     - .dynamodb/**
     - .pytest_cache/**
+    - node_modules/**
 
 plugins:
   - serverless-python-requirements
