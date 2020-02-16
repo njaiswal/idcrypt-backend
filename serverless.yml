@@ -82,6 +82,7 @@ provider:
     - Effect: Allow
       Action:
         - dynamodb:ListTables
+        - dynamodb:Query
       Resource:
         - Fn::Join: ["", [ "arn:aws:dynamodb:", { "Ref": "AWS::Region" }, ':', { Ref: "AWS::AccountId" }, ":table/*" ]]
   environment:
