@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 def before_feature(context, feature):
     wait_for_port(port=8000, host='localhost', timeout=60.0)
+    wait_for_table_to_exist('Accounts-test')
 
     app.testing = True
     context.client = app.test_client()
@@ -59,3 +60,10 @@ def wait_for_port(port, host='localhost', timeout=5.0):
             if time.perf_counter() - start_time >= timeout:
                 raise TimeoutError('Waited too long for the port {} on host {} to start accepting '
                                    'connections.'.format(port, host)) from ex
+
+
+def wait_for_table_to_exist(TABLE_NAME):
+    # Wait for the table to exist before exiting
+    logger.info('Waiting for {} to be created...'.format(TABLE_NAME))
+    waiter = db.client.get_waiter('table_exists')
+    waiter.wait(TableName=TABLE_NAME)
