@@ -9,9 +9,14 @@ logger = logging.getLogger(__name__)
 
 
 def get_cognito_user(flask_request):
-    if 'requestContext' not in flask_request.headers:
+    # serverless_wsgi puts following in wsgi environment dict
+    # "REMOTE_USER": event[u"requestContext"]
+    # Refer: https://github.com/logandk/serverless-wsgi/blob/master/serverless_wsgi.py#L134
+
+    if 'REMOTE_USER' not in flask_request.environ:
         abort(message='Authentication error: XR')
-    requestContext = json.loads(flask_request.headers.get('requestContext'))
+
+    requestContext = json.loads(flask_request.environ['REMOTE_USER'])
 
     if 'authorizer' not in requestContext:
         abort(message='Authentication error: XA')

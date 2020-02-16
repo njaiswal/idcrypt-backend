@@ -30,9 +30,9 @@ def get(context, user):
 def get(context, uri):
     url = '{}{}'.format(base_url, uri)
     headers = {'requestContext': context.auth_header}
-    log_request_info(url=url, headers=headers, body=None)
+    log_request_info(method='GET', url=url, REMOTE_USER=context.auth_header, body=None)
 
-    response = context.client.get(url, headers=headers)
+    response = context.client.get(url, environ_base={'REMOTE_USER': context.auth_header})
     log_response_info(response)
     assert response
     context.response = response
@@ -48,9 +48,9 @@ def create_new_account(context, accountName):
     url = '{}{}'.format(base_url, '/account/')
     headers = {'requestContext': context.auth_header}
     payload = dict(name=accountName)
-    log_request_info(url=url, headers=headers, body=payload)
+    log_request_info(method='GET', url=url, REMOTE_USER=context.auth_header, body=payload)
 
-    response = context.client.post(url, headers=headers, json=payload)
+    response = context.client.post(url, environ_base={'REMOTE_USER': context.auth_header}, json=payload)
     log_response_info(response)
     assert response
 
@@ -65,9 +65,9 @@ def update_account_with_queryParam(context, accountName, queryParam):
 
     url = '{}{}/{}?{}'.format(base_url, '/account', accountId, queryParam)
     headers = {'requestContext': context.auth_header}
-    log_request_info(url=url, headers=headers)
+    log_request_info(method='GET', url=url, REMOTE_USER=context.auth_header,)
 
-    response = context.client.put(url, headers=headers)
+    response = context.client.put(url, environ_base={'REMOTE_USER': context.auth_header})
     log_response_info(response)
     assert response
 
@@ -90,9 +90,9 @@ def update_account_id(context, action, accountId):
 
     url = '{}{}/{}?status={}'.format(base_url, '/account', accountId, status)
     headers = {'requestContext': context.auth_header}
-    log_request_info(url=url, headers=headers)
+    log_request_info(method='GET', url=url, REMOTE_USER=context.auth_header)
 
-    response = context.client.put(url, headers=headers)
+    response = context.client.put(url, environ_base={'REMOTE_USER': context.auth_header})
     log_response_info(response)
     assert response
     context.response = response
@@ -141,7 +141,7 @@ def get_account_id_by_name(accountName):
 
 
 # When running tests following methods from flask app are not invoked. Hence copying them over here.
-def log_request_info(url=None, headers=None, body=None):
+def log_request_info(method=None, REMOTE_USER=None, url=None, headers={}, body=None):
     headers_to_log = []
     for k, v in headers.items():
         if k != 'Authorization':
@@ -149,8 +149,9 @@ def log_request_info(url=None, headers=None, body=None):
         else:
             headers_to_log.append('{}=***redacted***'.format(k))
 
-    logger.debug('Request Url:'.ljust(25) + url)
+    logger.debug('Request Url:'.ljust(25) + '{}: {}'.format(method, url))
     logger.debug('Request Headers:'.ljust(25) + " # ".join(headers_to_log))
+    logger.debug('REMOTE_USER:'.ljust(25) + REMOTE_USER)
     logger.debug('Request Body:'.ljust(25) + str(body))
 
 

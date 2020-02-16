@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -40,7 +41,8 @@ def log_request_info():
         else:
             headers_to_log.append('{}=***redacted***'.format(k))
 
-    logger.debug('Request Url:'.ljust(25) + request.url)
+    logger.debug('Request REMOTE_USER:'.ljust(25) + json.dumps(request.environ['REMOTE_USER']))
+    logger.debug('Request Url:'.ljust(25) + '{}: {}'.format(request.method, request.url))
     logger.debug('Request Headers:'.ljust(25) + " # ".join(headers_to_log))
     logger.debug('Request Body:'.ljust(25) + str(request.get_data()))
 
