@@ -25,7 +25,7 @@ service: idcrypt-backend
 custom:
   tableName:
     accounts: 'Accounts-${self:provider.stage}'
-    users: 'Users-${self:provider.stage}'
+    requests: 'Requests-${self:provider.stage}'
   customDomain:
     domainName: ${self:provider.stage}.api.idcrypt.io
     basePath: ''
@@ -79,6 +79,7 @@ provider:
         - dynamodb:DeleteItem
       Resource:
         - { "Fn::GetAtt": ["AccountsDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["RequestsDynamoDBTable", "Arn" ] }
     - Effect: Allow
       Action:
         - dynamodb:ListTables
@@ -148,6 +149,7 @@ resources:
               NonKeyAttributes:
                 - name
                 - email
+                - status
                 - createdAt
               ProjectionType: INCLUDE
             ProvisionedThroughput:
@@ -157,6 +159,63 @@ resources:
             KeySchema:
               - AttributeName: owner
                 KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+    RequestsDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: accountId
+            AttributeType: S
+          - AttributeName: requestId
+            AttributeType: S
+          - AttributeName: requestee
+            AttributeType: S
+          - AttributeName: status
+            AttributeType: S
+          - AttributeName: requestType
+            AttributeType: S
+        KeySchema:
+          - AttributeName: accountId
+            KeyType: HASH
+          - AttributeName: requestId
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName.requests}
+        GlobalSecondaryIndexes:
+          - IndexName: RequesteeAndStatusIndex
+            KeySchema:
+              - AttributeName: requestee
+                KeyType: HASH
+              - AttributeName: status
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+          - IndexName: AccountIdAndStatusIndex
+            KeySchema:
+              - AttributeName: accountId
+                KeyType: HASH
+              - AttributeName: status
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+          - IndexName: RequesteeAndRequestTypeIndex
+            KeySchema:
+              - AttributeName: requestee
+                KeyType: HASH
+              - AttributeName: requestType
+                KeyType: RANGE
             Projection:
               ProjectionType: ALL
             ProvisionedThroughput:

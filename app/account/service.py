@@ -1,5 +1,6 @@
 import logging
 import json
+from typing import Optional
 
 from boto3.dynamodb.conditions import Key
 from flask_restplus import abort
@@ -10,13 +11,26 @@ from .model import Account, NewAccount
 from .schema import AccountSchema
 from app import db
 from ..cognito.cognitoUser import CognitoUser
+from ..database.db import assert_dynamodb_response
 
 logger = logging.getLogger(__name__)
 
 
 class AccountService:
     @staticmethod
-    def get_by_id(accountId: str):
+    def hydrate_request(request_attr: dict):
+        if 'accountId' in request_attr:
+            account: Account = AccountService.get_by_id(request_attr['accountId'])
+            if account is not None:
+                request_attr['accountName'] = account.name
+
+        if 'requestedOnResource' in request_attr:
+            account: Account = AccountService.get_by_id(request_attr['requestedOnResource'])
+            if account is not None:
+                request_attr['requestedOnResourceName'] = account.name
+            
+    @staticmethod
+    def get_by_id(accountId: str) -> Optional[Account]:
         table_name = db.table_names['accounts']
         logger.info('AccountService get_by_id called')
         table = db.dynamodb_resource.Table(table_name)
@@ -26,12 +40,13 @@ class AccountService:
             },
             ConsistentRead=True
         )
+        assert_dynamodb_response(resp)
 
         if 'Item' in resp:
             logger.info('get_by_id: {} returned a Item'.format(accountId))
-            return resp['Item']
+            return Account(**resp['Item'])
         else:
-            logger.error('get_by_id: {} returned None'.format(accountId))
+            logger.error('get_by_id: {} not found'.format(accountId))
             return None
 
     @staticmethod
@@ -54,9 +69,6 @@ class AccountService:
 
     @staticmethod
     def create(new_account: NewAccount, cognito_user: CognitoUser = None) -> Account:
-        if cognito_user is None:
-            abort(HTTPStatus.INTERNAL_SERVER_ERROR, 'Authenticated user required')
-
         table_name = db.table_names['accounts']
         logger.debug('AccountService create called')
 

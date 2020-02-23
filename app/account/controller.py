@@ -1,3 +1,4 @@
+import logging
 from http import HTTPStatus
 from flask import request
 from flask_accepts import accepts, responds
@@ -7,8 +8,9 @@ from webargs.flaskparser import use_args
 from .model import Account
 from .schema import AccountSchema, NewAccountSchema
 from .service import AccountService
-from ..authorization import verify_impersonation, Action
 from ..utils import get_cognito_user
+
+logger = logging.getLogger(__name__)
 
 api = Namespace(
     name='account',
@@ -35,18 +37,11 @@ class AccountResource(Resource):
 @api.route("/<string:account_id>")
 @api.param("account_id", "Account ID")
 class AccountIdResource(Resource):
-    # @responds(schema=AccountSchema)
-    # def get(self, account_id: str) -> Account:
-    #     """Get Single Account"""
-    #
-    #     account = AccountService.get_by_id(account_id)
-    #     if account is None:
-    #         abort(404, 'Account Id not found')
 
     @use_args({"status": fields.Str(required=False, location="query", validate=validate.OneOf(["active", "inactive"]))})
-    @api.doc(params={'status': 'New status: active|inactive'})
+    @api.doc(params={'status': 'New status: active | inactive'})
     @responds(schema=AccountSchema)
-    def put(self, args: dict,  account_id: str) -> Account:
+    def put(self, args: dict, account_id: str) -> Account:
         """Update Single Account"""
 
         # Make sure we understand the account update call
@@ -54,13 +49,17 @@ class AccountIdResource(Resource):
             abort(HTTPStatus.BAD_REQUEST, 'Invalid account update.')
 
         # Make sure that the account id is present
-        account_dict = AccountService.get_by_id(account_id)
-        if account_dict is None:
+        account: Account = AccountService.get_by_id(account_id)
+        if account is None:
             abort(404, 'Account Id not found.')
-        account: Account = Account(**account_dict)
 
         # Make sure that the user can update this account. Only owners can update account
-        verify_impersonation(request, action=Action.UPDATE_ACCOUNT, args=args, account=account)
+        cognito_user = get_cognito_user(request)
+        if account.owner != cognito_user.sub:
+            logger.error('Non-Owner {} tried to update accountId: {}, accountName: {}'.format(cognito_user.username,
+                                                                                              account.accountId,
+                                                                                              account.name))
+            abort(403, message='Only owner of account allowed to update the account.')
 
         # Make sure that its a valid update that changes the state
         if 'status' in args and account.status == args['status']:
@@ -71,4 +70,4 @@ class AccountIdResource(Resource):
             AccountService.update(account_id, k, v)
 
         # Return updated account back
-        return AccountService.get_by_id(account_id);
+        return AccountService.get_by_id(account_id)

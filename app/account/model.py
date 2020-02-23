@@ -2,6 +2,17 @@ import uuid
 from datetime import datetime
 
 
+class SameDomainAccount:
+
+    def __init__(self, accountId, name, domain, email, status, createdAt):
+        self.accountId = accountId
+        self.name = name
+        self.domain = domain
+        self.email = email
+        self.status = status
+        self.createdAt = createdAt
+
+
 class Account:
     """An Account"""
 
@@ -16,6 +27,7 @@ class Account:
         self.status = status
         self.tier = tier
         self.createdAt = datetime.now() if createdAt is None else createdAt
+        self.members = []
 
 
 class NewAccount(object):

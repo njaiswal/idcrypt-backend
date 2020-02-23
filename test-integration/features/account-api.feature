@@ -217,7 +217,6 @@ Feature: As a user I want to use account/ api
       }
       """
 
-  @dev
   Scenario: Owner can deactivate and activate account
     Given backend app is setup
     And i am logged in as joe@example.com

@@ -18,7 +18,10 @@ def before_feature(context, feature):
 
 # Deletes all items in table before start of scenario
 def before_scenario(context, scenario):
-    for (tableName, primaryKey) in [('Accounts-test', 'accountId')]:
+    for (tableName, projectionExpression, hashKey, sortKey) in [
+        ('Accounts-test', 'accountId', 'accountId', None),
+        ('Requests-test', 'accountId, requestId', 'accountId', 'requestId')
+    ]:
         table = db.dynamodb_resource.Table(tableName)
         scan = None
 
@@ -27,16 +30,18 @@ def before_scenario(context, scenario):
             while scan is None or 'LastEvaluatedKey' in scan:
                 if scan is not None and 'LastEvaluatedKey' in scan:
                     scan = table.scan(
-                        ProjectionExpression=primaryKey,
+                        ProjectionExpression=projectionExpression,
                         ExclusiveStartKey=scan['LastEvaluatedKey'],
                     )
                 else:
-                    scan = table.scan(ProjectionExpression=primaryKey)
+                    scan = table.scan(ProjectionExpression=projectionExpression)
 
                 for item in scan['Items']:
-                    if count % 5000 == 0:
-                        print(count)
-                    batch.delete_item(Key={primaryKey: item[primaryKey]})
+                    if sortKey is None:
+                        keys = {hashKey: item[hashKey]}
+                    else:
+                        keys = {hashKey: item[hashKey], sortKey: item[sortKey]}
+                    batch.delete_item(Key=keys)
                     count = count + 1
             logger.info('Deleted {} items from {}'.format(count, tableName))
 
