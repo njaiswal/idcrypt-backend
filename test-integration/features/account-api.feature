@@ -254,7 +254,7 @@ Feature: As a user I want to use account/ api
     Then i should get response with status code 200 and data
       """
       {
-        "accountId": "***",
+        "accountId": "****",
         "name": "Joe Car Hire",
         "owner": "f5b8fb60c6116331da07c65b96a8a1d1",
         "domain": "example.com",
