@@ -27,7 +27,7 @@ class UpdateHistorySchema(Schema):
 class AppRequestSchema(Schema):
     """App Request schema"""
 
-    requestId = fields.String(attribute="requestId")
+    requestId = fields.String(attribute="requestId", required=True)
     accountId = fields.String(attribute="accountId", required=True)
     accountName = fields.String(attribute="accountName", required=True)
     requestee = fields.String(attribute="requestee", required=True)
@@ -35,7 +35,8 @@ class AppRequestSchema(Schema):
     requesteeEmail = fields.String(attribute="requesteeEmail", required=True)
     requestorEmail = fields.String(attribute="requestorEmail", required=True)
     requestType = fields.String(attribute="requestType", required=True,
-                                validate=validate.OneOf(['joinAccount', 'leaveAccount',
+                                validate=validate.OneOf(['createAccount', 'suspendAccount', 'deleteAccount',
+                                                         'joinAccount', 'leaveAccount',
                                                          'joinAsAccountAdmin', 'leaveAsAccountAdmin',
                                                          'joinAsRepoApprover', 'leaveAsRepoApprover',
                                                          'grantRepoAccess', 'removeRepoAccess']))
@@ -75,7 +76,8 @@ class NewAppRequestSchema(Schema):
 
     accountId = fields.String(attribute="accountId", required=True)
     requestType = fields.String(attribute="requestType", required=True,
-                                validate=validate.OneOf(['joinAccount', 'leaveAccount',
+                                validate=validate.OneOf(['suspendAccount', 'deleteAccount',
+                                                         'joinAccount', 'leaveAccount',
                                                          'joinAsAccountAdmin', 'leaveAsAccountAdmin',
                                                          'joinAsApprovers', 'leaveAsApprover',
                                                          'joinAsRepoUser', 'leaveAsRepoUser']))

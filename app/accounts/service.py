@@ -71,3 +71,4 @@ class AccountsService:
                          .format(domain, json.dumps(resp, indent=4, sort_keys=True, default=str)))
 
         return same_domain_accounts
+

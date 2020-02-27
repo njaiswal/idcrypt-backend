@@ -3,7 +3,7 @@ Feature: As a user I want to update my requests
   Scenario: User can cancel self request
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i mark joinAccount request as cancelled
@@ -33,11 +33,10 @@ Feature: As a user I want to update my requests
     }
     """
 
-    @dev
   Scenario: User cancels self request twice
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i mark joinAccount request as cancelled
@@ -48,10 +47,11 @@ Feature: As a user I want to update my requests
       "message" : "Request status already marked as cancelled."
     }
     """
+
   Scenario: Owner can approve joinAccount request
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i am logged in as joe@example.com
@@ -85,7 +85,7 @@ Feature: As a user I want to update my requests
   Scenario: Owner can deny joinAccount request
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i am logged in as joe@example.com
@@ -119,7 +119,7 @@ Feature: As a user I want to update my requests
   Scenario: Non-existing requestId sent in request update payload
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i am logged in as joe@example.com
@@ -134,7 +134,7 @@ Feature: As a user I want to update my requests
   Scenario: Non-existing accountId sent in request update payload
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i am logged in as joe@example.com
@@ -149,7 +149,7 @@ Feature: As a user I want to update my requests
   Scenario: Owner tries to mark pending request straight to closed
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i am logged in as joe@example.com
@@ -161,11 +161,10 @@ Feature: As a user I want to update my requests
     }
     """
 
-    @dev
   Scenario: Owner tries to mark cancelled request approved
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     And i mark joinAccount request as cancelled
@@ -181,7 +180,7 @@ Feature: As a user I want to update my requests
   Scenario: Owner tries to mark approved request approved again
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i am logged in as joe@example.com
@@ -197,7 +196,7 @@ Feature: As a user I want to update my requests
   Scenario: Owner tries to mark approved request as closed
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i am logged in as joe@example.com
@@ -213,9 +212,9 @@ Feature: As a user I want to update my requests
   Scenario: Owner of another account tries to mark a request as approved in another account
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as mark@example.com
-    And i create a new account with name Mark Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i am logged in as mark@example.com

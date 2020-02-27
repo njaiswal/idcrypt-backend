@@ -1,11 +1,16 @@
 from flask import Flask
 from flask_restplus import Api, abort
 from webargs.flaskparser import parser
+
+from app.cognito.idp import IDP
 from app.database.db import DB
 from flask_cors import CORS
 
-db = DB()
+from app.storage.s3 import S3
 
+db = DB()
+s3 = S3()
+idp = IDP()
 
 def create_app(version="v1.0", env=None):
     from app.routes import register_routes
@@ -31,8 +36,14 @@ def create_app(version="v1.0", env=None):
 
     app.config.from_object(config_by_name[env or "test"])
 
+    # Initialize IDP for Admin queries
+    idp.init(app)
+
     # Initialize DB
     db.init(app)
+
+    # Initialize S3
+    s3.init(app)
 
     # Register routes
     register_routes(api)

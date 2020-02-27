@@ -1,24 +1,28 @@
 from marshmallow import fields, Schema, validate, post_load
 
 from app.account.model import NewAccount
+from app.repos.schema import NewRepoSchema
 
 
 class AccountSchema(Schema):
     """Account schema"""
 
-    accountId = fields.String(attribute="accountId")
+    accountId = fields.String(attribute="accountId", required=True)
     name = fields.String(attribute="name", required=True)
-    owner = fields.String(attribute="owner")
-    domain = fields.String(attribute="domain")
+    owner = fields.String(attribute="owner", required=True)
+    domain = fields.String(attribute="domain", required=True)
     address = fields.String(attribute="address")
-    email = fields.Email(attribute="email")
-    status = fields.String(attribute="status", validate=validate.OneOf(["active", "inactive"]))
-    tier = fields.String(attribute="tier", validate=validate.OneOf(["free", "enterprise", "dedicated"]))
+    email = fields.Email(attribute="email", required=True)
+    status = fields.String(attribute="status", required=True, validate=validate.OneOf(["active", "inactive"]))
+    tier = fields.String(attribute="tier", required=True, validate=validate.OneOf(["free", "enterprise", "dedicated"]))
+    members = fields.List(fields.String(), attribute="members", required=True)
+    admins = fields.List(fields.String(), attribute="admins", required=True)
+
     # this should be DateTime. currently not working. todo...
-    createdAt = fields.String()
+    createdAt = fields.String(attribute="createdAt", required=True)
 
     class Meta:
-        fields = ("accountId", "name", "owner", "domain", "address", "email", "status", "tier", "createdAt")
+        fields = ("accountId", "name", "owner", "domain", "address", "email", "status", "tier", "members", "admins", "createdAt")
         ordered = True
 
 
@@ -26,13 +30,18 @@ class NewAccountSchema(Schema):
     """New account schema"""
     name = fields.String(attribute="name", required=True, validate=[
         validate.Length(min=3, max=30),
-        validate.Regexp(r"^[a-zA-Z0-9_\- ]*$", error="Account name must not contain special characters.")
+        validate.Regexp(r"^[a-zA-Z0-9 ]*$", error="Account name must not contain special characters.")
     ])
 
+    repo = fields.Nested(NewRepoSchema, attribute="repo", required=True)
+
     class Meta:
-        fields = ["name"]
+        fields = [
+            "name",
+            "repo",
+        ]
         ordered = True
 
     @post_load
-    def create_new_account(self, data, **kwarg):
+    def create_new(self, data, **kwarg):
         return NewAccount(**data)

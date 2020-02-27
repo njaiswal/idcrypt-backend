@@ -10,7 +10,7 @@ from deepdiff import DeepDiff
 from flask import Response
 from hamcrest import *
 
-from app import db
+from app import db, s3
 from app.database.db import assert_dynamodb_response
 
 base_url = '/api/v1.0'
@@ -38,15 +38,20 @@ def get(context, uri):
     context.response = response
 
 
-@when(u'i create a new account without a name')
-def create_new_account_without_name(context):
-    create_new_account(context, None)
+# @when(u'i create a new account without a name')
+# def create_new_account_without_name(context):
+#     create_new_account(context, json_text_payload=None)
+
+@step(u"i submit create account request with '{payload}'")
+def submit_create_account(context, payload):
+    context.text = payload
+    create_new_account(context)
 
 
-@step(u'i create a new account with name {accountName}')
-def create_new_account(context, accountName):
+@step(u'i create a new account with payload')
+def create_new_account(context):
     url = '{}{}'.format(base_url, '/account/')
-    payload = dict(name=accountName)
+    payload: dict = json.loads(context.text)
 
     response = context.client.post(url, environ_base={'API_GATEWAY_AUTHORIZER': context.auth_header}, json=payload)
     assert response
@@ -58,7 +63,7 @@ def create_new_account(context, accountName):
 
 @step(u"i update account '{accountName}' with query parameter {queryParam}")
 def update_account_with_queryParam(context, accountName, queryParam):
-    accountId = get_account_id_by_name(accountName)
+    accountId = get_account_by_name(accountName)['accountId']
 
     url = '{}{}/{}?{}'.format(base_url, '/account', accountId, queryParam)
 
@@ -73,7 +78,7 @@ def update_account_with_queryParam(context, accountName, queryParam):
 @step('i submit request of type {action} for \'{accountName}\'')
 def app_request(context, action, accountName):
     assert_that(action, is_in(['joinAccount', 'leaveAccount', 'makeMeGod']))
-    accountId = get_account_id_by_name(accountName)
+    accountId = get_account_by_name(accountName)['accountId']
     app_request_accountId(context, action, accountId, accountId)
 
 
@@ -99,7 +104,6 @@ def app_request_accountId(context, type, accountId, requestedOnResource):
 
 @step(u'i try to mark accountId={accountId} and requestId={requestId} as {new_status}')
 def action_request_primaryKey(context, accountId, requestId, new_status):
-
     effective_account_id = accountId
     if accountId == 'last_created_accountId':
         last_json_response = json.dumps(context.response.get_json())
@@ -141,7 +145,7 @@ def action_request(context, requestType, new_status):
 @step(u"i {action} account '{accountName}'")
 def update_account(context, action, accountName):
     assert_that(action, is_in(['activate', 'deactivate']))
-    accountId = get_account_id_by_name(accountName)
+    accountId = get_account_by_name(accountName)['accountId']
     update_account_id(context, action, accountId)
 
 
@@ -156,6 +160,18 @@ def update_account_id(context, action, accountId):
     context.response = response
 
 
+@then(u'i should get response with status code {code:d}')
+def response_status_code(context, code):
+    response: Response = context.response
+    assert_that(response.status_code, equal_to(code))
+
+
+@then(u"i get response with '{status_code}' and '{response}'")
+def verify_response_and_status_code(context, status_code, response):
+    context.text = response
+    response_status_code(context, int(status_code))
+
+
 @then(u'i should get response with status code {code:d} and data')
 def response_status_code(context, code):
     response: Response = context.response
@@ -164,14 +180,16 @@ def response_status_code(context, code):
     expected_json: dict = json.loads(context.text)
 
     if code == 200:
-        ddiff = DeepDiff(response.get_json(), expected_json, ignore_order=True,
+        response_dict = json.loads(json.dumps(response.get_json()))
+        ddiff = DeepDiff(response_dict, expected_json, ignore_order=True,
                          exclude_paths=["root['createdAt']",
                                         "root['accountId']",
                                         "root['requestId']",
-                                        "root['requestedOnResource']"
+                                        "root['requestedOnResource']",
+                                        "root['repoId']"
                                         ],
                          exclude_regex_paths=[
-                             r"root\[\d+\]\['(createdAt|accountId)'\]",
+                             r"root\[\d+\]\['(createdAt|accountId|repoId)'\]",
                              r"root\['updateHistory'\]\[\d+\]"
                          ])
         logger.info('Diff of actual and expected response below:')
@@ -191,6 +209,43 @@ def response_status_code(context, code):
         assert not DeepDiff(response.get_json(), expected_json, ignore_order=True)
 
 
+@step(u"repo meta info file '{pathToMetaInfoFile}' is available for account '{accountName}'")
+def verify_s3_repo_metaInfo(context, pathToMetaInfoFile, accountName):
+    s3BucketName = get_account_by_name(accountName)['bucketName']
+    bucketResource = s3.s3_resource.Bucket(s3BucketName)
+
+    objectKeysInBucket = []
+    for obj in bucketResource.objects.all():
+        objectKeysInBucket.append(obj.key)
+
+    assert pathToMetaInfoFile in objectKeysInBucket
+
+
+@step(u"s3 bucket for account '{accountName}' is available")
+def verify_s3_bucket(context, accountName):
+    s3BucketName = get_account_by_name(accountName)['bucketName']
+
+    allBucketNames = []
+    for buckets in s3.client.list_buckets()['Buckets']:
+        allBucketNames.append(buckets['Name'])
+
+    assert s3BucketName in allBucketNames
+
+
+@step(u"s3 bucket namespace for '{bucketNameSpace}' is exhausted")
+def exhaust_s3_namespace(context, bucketNameSpace):
+    for suffix in range(1000, 9999):
+        if suffix % 2:
+            continue
+        suffixedBucketName = '{}-{}'.format(bucketNameSpace, suffix)
+        s3.client.create_bucket(
+            Bucket=suffixedBucketName,
+            CreateBucketConfiguration={
+                'LocationConstraint': s3.region
+            }
+        )
+
+
 def get_fake_auth_headers(email: str):
     return {
         'claims': {
@@ -202,7 +257,7 @@ def get_fake_auth_headers(email: str):
     }
 
 
-def get_account_id_by_name(accountName, retry=False):
+def get_account_by_name(accountName, retry=False):
     table = db.dynamodb_resource.Table('Accounts-test')
 
     resp = table.query(
@@ -216,8 +271,8 @@ def get_account_id_by_name(accountName, retry=False):
     if resp['Count'] == 0 and not retry:
         logger.info('Did not find account with name {}. Going to retry after 1 sec'.format(accountName))
         time.sleep(1)
-        return get_account_id_by_name(accountName, retry=True)
+        return get_account_by_name(accountName, retry=True)
 
     assert_that(len(resp['Items']), is_not(0), reason="Get account by name failed")
 
-    return resp['Items'][0]['accountId']
+    return resp['Items'][0]

@@ -12,7 +12,17 @@ Feature: As a user I want to use accounts/ api
   Scenario: Owner calls accounts/
     Given backend app is setup
     And i am logged in as joe@example.com
-    When i create a new account with name Joe Car Hire
+    When i create a new account with payload
+      """
+      {
+        "name": "Joe Car Hire",
+        "repo": {
+          "name": "Docs",
+          "desc": "KYC",
+          "retention": 30
+        }
+      }
+      """
     Then i should get response with status code 200 and data
       """
       {
@@ -24,7 +34,9 @@ Feature: As a user I want to use accounts/ api
         "email": "joe@example.com",
         "status": "active",
         "tier": "free",
-        "createdAt": "***"
+        "createdAt": "***",
+        "members": ["f5b8fb60c6116331da07c65b96a8a1d1"],
+        "admins": []
       }
       """
     When i GET "/accounts/"
@@ -40,7 +52,9 @@ Feature: As a user I want to use accounts/ api
           "email": "joe@example.com",
           "status": "active",
           "tier": "free",
-          "createdAt": "***"
+          "createdAt": "***",
+          "members": ["f5b8fb60c6116331da07c65b96a8a1d1"],
+          "admins": []
         }
       ]
       """

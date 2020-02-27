@@ -5,10 +5,15 @@ from flask_accepts import accepts, responds
 from flask_restplus import Namespace, Resource, abort
 from webargs import fields, validate
 from webargs.flaskparser import use_args
-from .model import Account
+
+from .authz.newAccountAuth import NewAccountAuth
+from .model import Account, NewAccount
 from .schema import AccountSchema, NewAccountSchema
 from .service import AccountService
+from ..repos.model import Repo
+from ..repos.service import RepoService
 from ..utils import get_cognito_user
+from app import s3
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +33,23 @@ class AccountResource(Resource):
         """Create a Single Account"""
         # Validate with schema
         new_account_schema = NewAccountSchema()
-        new_account = new_account_schema.load(api.payload)
+        new_account: NewAccount = new_account_schema.load(api.payload)
 
         cognito_user = get_cognito_user(request)
-        return AccountService.create(new_account, cognito_user=cognito_user)
+
+        newAccountAuth: NewAccountAuth = NewAccountAuth(new_account, cognito_user)
+        newAccountAuth.doChecks()
+
+        try:
+            created_account: Account = AccountService.create(new_account, cognito_user=cognito_user)
+            created_repo: Repo = RepoService.create(created_account.accountId, new_account.repo, cognito_user=cognito_user)
+            created_bucket = s3.createRepoBucket(created_account, created_repo)
+            AccountService.update(created_account.accountId, 'bucketName', created_bucket)
+            return created_account
+        except Exception as exception:
+            logger.error('Exception during new account creation: {}'.format(exception))
+            # todo: rollback
+            abort(500, message='New account creation failed. Please try again.')
 
 
 @api.route("/<string:account_id>")

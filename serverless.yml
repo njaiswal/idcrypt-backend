@@ -26,6 +26,7 @@ custom:
   tableName:
     accounts: 'Accounts-${self:provider.stage}'
     requests: 'Requests-${self:provider.stage}'
+    repos: 'Repos-${self:provider.stage}'
   customDomain:
     domainName: ${self:provider.stage}.api.idcrypt.io
     basePath: ''
@@ -80,6 +81,7 @@ provider:
       Resource:
         - { "Fn::GetAtt": ["AccountsDynamoDBTable", "Arn" ] }
         - { "Fn::GetAtt": ["RequestsDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["ReposDynamoDBTable", "Arn" ] }
     - Effect: Allow
       Action:
         - dynamodb:ListTables
@@ -151,6 +153,9 @@ resources:
                 - email
                 - status
                 - createdAt
+                - owner
+                - members
+                - admins
               ProjectionType: INCLUDE
             ProvisionedThroughput:
               ReadCapacityUnits: 1
@@ -221,7 +226,46 @@ resources:
             ProvisionedThroughput:
               ReadCapacityUnits: 1
               WriteCapacityUnits: 1
-
+    ReposDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: accountId
+            AttributeType: S
+          - AttributeName: repoId
+            AttributeType: S
+          - AttributeName: name
+            AttributeType: S
+        KeySchema:
+          - AttributeName: accountId
+            KeyType: HASH
+          - AttributeName: repoId
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName.repos}
+        GlobalSecondaryIndexes:
+          - IndexName: AccountIdAndRepoNameIndex
+            KeySchema:
+              - AttributeName: accountId
+                KeyType: HASH
+              - AttributeName: name
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+          - IndexName: AccountIdIndex
+            KeySchema:
+              - AttributeName: accountId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
 package:
   exclude:
     - .lambda_env/**
@@ -236,3 +280,4 @@ plugins:
   - serverless-offline
   - serverless-dynamodb-local
   - serverless-wsgi
+  - serverless-localstack

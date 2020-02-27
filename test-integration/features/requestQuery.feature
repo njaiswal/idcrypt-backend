@@ -12,7 +12,7 @@ Feature: As a user I want to query my requests
   Scenario: User queries all requests
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     When i submit request of type joinAccount for 'Joe Car Hire'
     And i GET "/requests/"
@@ -40,7 +40,7 @@ Feature: As a user I want to query my requests
   Scenario: User queries all pending requests
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     When i submit request of type joinAccount for 'Joe Car Hire'
     And i GET "/requests/?status=pending"
@@ -68,7 +68,7 @@ Feature: As a user I want to query my requests
   Scenario: User queries request with incorrect status
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     When i submit request of type joinAccount for 'Joe Car Hire'
     And i GET "/requests/?status=xyz"
@@ -86,7 +86,7 @@ Feature: As a user I want to query my requests
   Scenario: Owner queries all pending requests
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i am logged in as kevin@example.com
@@ -132,7 +132,7 @@ Feature: As a user I want to query my requests
   Scenario: Owner queries all archived requests
     Given backend app is setup
     And i am logged in as joe@example.com
-    And i create a new account with name Joe Car Hire
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
     When i am logged in as sam@example.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i am logged in as kevin@example.com

@@ -5,6 +5,7 @@ import boto3
 import botocore
 from boto3 import dynamodb
 from botocore.client import BaseClient
+from flask import Flask
 from flask_restplus import abort
 
 
@@ -44,7 +45,7 @@ class DB:
     env = None
     table_names: dict = {}
 
-    def init(self, app):
+    def init(self, app: Flask):
         self.db_endpoint = app.config.get('DYNAMODB_ENDPOINT_URL')
         self.region = app.config.get('REGION_NAME')
         self.env = app.config.get('CONFIG_NAME')
@@ -60,3 +61,4 @@ class DB:
         # todo: Remove this hack and make it more flexible
         self.table_names['accounts'] = 'Accounts-{}'.format(self.env)
         self.table_names['requests'] = 'Requests-{}'.format(self.env)
+        self.table_names['repos'] = 'Repos-{}'.format(self.env)

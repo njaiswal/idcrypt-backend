@@ -4,6 +4,7 @@ import socket
 
 from backend import app
 from app import db
+from app import s3
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,8 @@ def before_feature(context, feature):
 def before_scenario(context, scenario):
     for (tableName, projectionExpression, hashKey, sortKey) in [
         ('Accounts-test', 'accountId', 'accountId', None),
-        ('Requests-test', 'accountId, requestId', 'accountId', 'requestId')
+        ('Requests-test', 'accountId, requestId', 'accountId', 'requestId'),
+        ('Repos-test', 'accountId, repoId', 'accountId', 'repoId')
     ]:
         table = db.dynamodb_resource.Table(tableName)
         scan = None
@@ -44,6 +46,34 @@ def before_scenario(context, scenario):
                     batch.delete_item(Key=keys)
                     count = count + 1
             logger.info('Deleted {} items from {}'.format(count, tableName))
+
+    # Delete all s3 buckets as well
+    deletedBuckets = 0
+    for bucket in s3.client.list_buckets()['Buckets']:
+        bucketResource = s3.s3_resource.Bucket(bucket['Name'])
+        bucketResource.objects.all().delete()
+        bucketResource.delete()
+        deletedBuckets = deletedBuckets + 1
+        waiter = s3.client.get_waiter('bucket_not_exists')
+        waiter.wait(Bucket=bucket['Name'])
+
+    logger.info('Deleted {} buckets from s3'.format(deletedBuckets))
+
+    # Create logging bucket
+    s3.client.create_bucket(
+        Bucket='idcrypt-s3-access-logs',
+        CreateBucketConfiguration={
+            'LocationConstraint': 'eu-west-1'
+        }
+    )
+    waiter = s3.client.get_waiter('bucket_exists')
+    waiter.wait(Bucket='idcrypt-s3-access-logs')
+
+    # Give the group log-delievery WRITE and READ_ACP permisions to the target logging bucket
+    s3.client.put_bucket_acl(
+        ACL='log-delivery-write',
+        Bucket='idcrypt-s3-access-logs'
+    )
 
 
 def wait_for_port(port, host='localhost', timeout=5.0):
