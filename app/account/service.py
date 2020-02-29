@@ -6,39 +6,43 @@ from boto3.dynamodb.conditions import Key
 from flask_restplus import abort
 
 from . import PARTITION_KEY
-from .model import Account, NewAccount, SameDomainAccount
+from .model import Account, NewAccount
 from .schema import AccountSchema
-from app import db
-from ..accounts.service import AccountsService
+from ..database.db import DB
 from ..cognito.cognitoUser import CognitoUser
 from ..database.db import assert_dynamodb_response
 
 logger = logging.getLogger(__name__)
 
-table_name = db.table_names['accounts']
-table = db.dynamodb_resource.Table(table_name)
-
 
 class AccountService:
-    @staticmethod
-    def hydrate_request(request_attr: dict):
+    db = None
+    table_name = None
+    table = None
+
+    def init(self, db: DB, table_name):
+        self.db = db
+        self.table_name = table_name
+        self.table = db.dynamodb_resource.Table(self.table_name)
+
+    def hydrate_request(self, request_attr: dict):
         if 'accountId' in request_attr:
-            account: Account = AccountService.get_by_id(request_attr['accountId'])
+            account: Account = self.get_by_id(request_attr['accountId'])
             if account is not None:
                 request_attr['accountName'] = account.name
 
         if 'requestedOnResource' in request_attr:
-            account: Account = AccountService.get_by_id(request_attr['requestedOnResource'])
+            account: Account = self.get_by_id(request_attr['requestedOnResource'])
             if account is not None:
                 request_attr['requestedOnResourceName'] = account.name
 
-    @staticmethod
-    def get_by_user(user: CognitoUser) -> Optional[Account]:
+    def get_by_user(self, user: CognitoUser) -> Optional[Account]:
+        from app import accountsService
         # In order to reduce data size fetched from Dynamodb we have do do this in a round about way.
         # We could do a simple query operation but since data size is calculated before query filter is applied
         # we want to avoid this approach.
         domain = user.email.split('@')[1]
-        sameDomainAccounts: List[SameDomainAccount] = AccountsService.get_by_domain(domain)
+        sameDomainAccounts: List[Account] = accountsService.get_by_domain(domain)
 
         if len(sameDomainAccounts) == 0:
             return None
@@ -55,12 +59,11 @@ class AccountService:
             logger.error('User found to be member of more than one account: {}'.format(accountIdForUser))
             abort(500, 'Internal Server Error. Please contact support.')
 
-        return AccountService.get_by_id(accountIdForUser[0])
+        return self.get_by_id(accountIdForUser[0])
 
-    @staticmethod
-    def get_by_id(accountId: str) -> Optional[Account]:
+    def get_by_id(self, accountId: str) -> Optional[Account]:
         logger.info('AccountService get_by_id called')
-        resp = table.get_item(
+        resp = self.table.get_item(
             Key={
                 PARTITION_KEY: accountId
             },
@@ -75,11 +78,24 @@ class AccountService:
             logger.error('get_by_id: {} not found'.format(accountId))
             return None
 
-    @staticmethod
-    def update(accountId: str, key: str, value: str) -> None:
+    def add_member(self, accountId: str, newMember: str) -> None:
+        resp = self.table.update_item(
+            Key={
+                'accountId': accountId,
+            },
+            UpdateExpression='set members = list_append(if_not_exists(members, :empty_list), :h)',
+            ExpressionAttributeValues={
+                ':h': [newMember],
+                ':empty_list': []
+            },
+            ReturnValues='NONE',
+        )
+        assert_dynamodb_response(resp)
+
+    def update(self, accountId: str, key: str, value: str) -> None:
         logger.info('AccountService update called')
 
-        resp = table.update_item(
+        resp = self.table.update_item(
             Key={
                 PARTITION_KEY: accountId
             },
@@ -91,9 +107,8 @@ class AccountService:
 
         logger.info('Account update for accountId={} returned update_response: {}'.format(accountId, json.dumps(resp)))
 
-    @staticmethod
-    def owner_account_exists(owner: str) -> bool:
-        resp = table.query(
+    def owner_account_exists(self, owner: str) -> bool:
+        resp = self.table.query(
             IndexName='AccountOwnerIndex',
             KeyConditionExpression=Key('owner').eq(owner),
             Select='COUNT'
@@ -105,10 +120,9 @@ class AccountService:
         else:
             return True
 
-    @staticmethod
-    def account_by_name_exists(name: str) -> bool:
+    def account_by_name_exists(self, name: str) -> bool:
         # Verify that no other account with same name exists
-        resp = table.query(
+        resp = self.table.query(
             IndexName='AccountNameIndex',
             KeyConditionExpression=Key('name').eq(name),
             Select='COUNT'
@@ -120,8 +134,7 @@ class AccountService:
         else:
             return True
 
-    @staticmethod
-    def create(new_account: NewAccount, cognito_user: CognitoUser = None) -> Optional[Account]:
+    def create(self, new_account: NewAccount, cognito_user: CognitoUser = None) -> Optional[Account]:
 
         logger.debug('AccountService create called')
 
@@ -140,12 +153,12 @@ class AccountService:
         new_account_dict = AccountSchema().dump(new_account)
 
         # Create Account
-        put_response = table.put_item(
+        put_response = self.table.put_item(
             Item=new_account_dict
         )
         logger.debug('put_response: {}'.format(json.dumps(put_response, indent=4, sort_keys=True)))
 
-        get_response = table.get_item(
+        get_response = self.table.get_item(
             Key={
                 PARTITION_KEY: str(new_account.accountId)
             },

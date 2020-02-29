@@ -5,7 +5,6 @@ import boto3
 import botocore
 from boto3 import dynamodb
 from botocore.client import BaseClient
-from flask import Flask
 from flask_restplus import abort
 
 
@@ -40,25 +39,18 @@ def assert_dynamodb_response(response, expected_attribute=None):
 class DB:
     client: botocore.client = None
     dynamodb_resource: dynamodb = None
-    region = None
-    db_endpoint = None
-    env = None
-    table_names: dict = {}
+    stream_client: botocore.client = None
 
-    def init(self, app: Flask):
-        self.db_endpoint = app.config.get('DYNAMODB_ENDPOINT_URL')
-        self.region = app.config.get('REGION_NAME')
-        self.env = app.config.get('CONFIG_NAME')
+    def init(self, region: str, db_endpoint: str):
         self.client = boto3.client('dynamodb',
-                                   region_name=self.region,
-                                   endpoint_url=self.db_endpoint
+                                   region_name=region,
+                                   endpoint_url=db_endpoint
                                    )
         self.dynamodb_resource = boto3.resource('dynamodb',
-                                                region_name=self.region,
-                                                endpoint_url=self.db_endpoint
+                                                region_name=region,
+                                                endpoint_url=db_endpoint
                                                 )
-
-        # todo: Remove this hack and make it more flexible
-        self.table_names['accounts'] = 'Accounts-{}'.format(self.env)
-        self.table_names['requests'] = 'Requests-{}'.format(self.env)
-        self.table_names['repos'] = 'Repos-{}'.format(self.env)
+        self.stream_client = boto3.client('dynamodbstreams',
+                                          region_name=region,
+                                          endpoint_url=db_endpoint
+                                          )

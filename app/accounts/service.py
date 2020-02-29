@@ -1,23 +1,28 @@
 import logging
 import json
 from typing import List
-
 from boto3.dynamodb.conditions import Key
 from flask_restplus import abort
+from ..database.db import DB
 from ..account import PARTITION_KEY
-from app import db
-from ..account.model import Account, SameDomainAccount
+from ..account.model import Account
 from ..database.db import assert_dynamodb_response
 
 logger = logging.getLogger(__name__)
 
 
 class AccountsService:
-    @staticmethod
-    def get_by_id(accountId: str):
-        table_name = db.table_names['accounts']
-        table = db.dynamodb_resource.Table(table_name)
-        get_response = table.get_item(
+    db = None
+    table_name = None
+    table = None
+
+    def init(self, db: DB, table_name):
+        self.db = db
+        self.table_name = table_name
+        self.table = db.dynamodb_resource.Table(self.table_name)
+
+    def get_by_id(self, accountId: str):
+        get_response = self.table.get_item(
             Key={
                 PARTITION_KEY: accountId
             },
@@ -30,11 +35,8 @@ class AccountsService:
         else:
             abort(404, 'Account ID not found')
 
-    @staticmethod
-    def get_by_owner(owner: str) -> List[Account]:
-        table_name = db.table_names['accounts']
-        table = db.dynamodb_resource.Table(table_name)
-        resp = table.query(
+    def get_by_owner(self, owner: str) -> List[Account]:
+        resp = self.table.query(
             IndexName='AccountOwnerIndex',
             KeyConditionExpression=Key('owner').eq(owner),
             Select='ALL_PROJECTED_ATTRIBUTES'
@@ -49,22 +51,19 @@ class AccountsService:
 
         return my_accounts
 
-    @staticmethod
-    def get_by_domain(domain: str) -> List[SameDomainAccount]:
-        table_name = db.table_names['accounts']
-        table = db.dynamodb_resource.Table(table_name)
-        resp = table.query(
+    def get_by_domain(self, domain: str) -> List[Account]:
+        resp = self.table.query(
             IndexName='AccountDomainIndex',
             KeyConditionExpression=Key('domain').eq(domain),
             Select='ALL_PROJECTED_ATTRIBUTES'
         )
 
-        same_domain_accounts: List[SameDomainAccount] = []
+        same_domain_accounts: List[Account] = []
 
         if 'Items' in resp:
             logger.info('get_by_domain: {} returned {} Items'.format(domain, len(resp['Items'])))
             for item in resp['Items']:
-                account = SameDomainAccount(**item)
+                account = Account(**item)
                 same_domain_accounts.append(account)
         else:
             logger.error('get_by_domain: No Items attribute found. domain={}, Unexpected response: {}'

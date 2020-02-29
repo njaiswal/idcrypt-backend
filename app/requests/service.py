@@ -3,19 +3,24 @@ from typing import Optional, List
 from boto3.dynamodb.conditions import Key
 from .model import NewAppRequest, AppRequest, UpdateAppRequest, UpdateHistory
 from .schema import AppRequestSchema, UpdateHistorySchema
-from app import db
-from ..account.service import AccountService
+from app.database.db import DB
 from ..cognito.cognitoUser import CognitoUser
 from ..database.db import assert_dynamodb_response
 
-logger = logging.getLogger(__name__)
-requests_table_name = db.table_names['requests']
-table = db.dynamodb_resource.Table(requests_table_name)
-
 
 class RequestService:
-    @staticmethod
-    def get_by_accountId(accountId: str, status: str = None):
+    logger = logging.getLogger(__name__)
+
+    db = None
+    table_name = None
+    table = None
+
+    def init(self, db: DB, table_name):
+        self.db = db
+        self.table_name = table_name
+        self.table = db.dynamodb_resource.Table(self.table_name)
+
+    def get_by_accountId(self, accountId: str, status: str = None):
         """ Returns all requests for a accountID of a particular status if status is present
             Returns all requests for accountID otherwise
         """
@@ -23,43 +28,41 @@ class RequestService:
         if status is not None:
             keyConditionExpression = Key('accountId').eq(accountId) & Key('status').eq(status)
 
-        resp = table.query(
+        resp = self.table.query(
             IndexName='AccountIdAndStatusIndex',
             KeyConditionExpression=keyConditionExpression,
             Select='ALL_ATTRIBUTES'
         )
         assert_dynamodb_response(resp, expected_attribute='Items')
 
-        logger.info('get_by_accountId: {} returned {} Items'.format(accountId, len(resp['Items'])))
+        self.logger.info('get_by_accountId: {} returned {} Items'.format(accountId, len(resp['Items'])))
         found_app_requests: List[AppRequest] = []
         for item in resp['Items']:
             found_app_requests.append(AppRequest(**item))
 
         return found_app_requests
 
-    @staticmethod
-    def get_by_requesteeAndRequestType(requestee: str, requestType: str = None) -> List[AppRequest]:
+    def get_by_requesteeAndRequestType(self, requestee: str, requestType: str = None) -> List[AppRequest]:
         """ Returns all requests made for a user of a particular requestType"""
         # table = db.dynamodb_resource.Table(requests_table_name)
 
         keyConditionExpression = Key('requestee').eq(requestee) & Key('requestType').eq(requestType)
 
-        resp = table.query(
+        resp = self.table.query(
             IndexName='RequesteeAndRequestTypeIndex',
             KeyConditionExpression=keyConditionExpression,
             Select='ALL_ATTRIBUTES'
         )
         assert_dynamodb_response(resp, expected_attribute='Items')
 
-        logger.info('get_by_requesteeAndRequestType: {} returned {} Items'.format(requestee, len(resp['Items'])))
+        self.logger.info('get_by_requesteeAndRequestType: {} returned {} Items'.format(requestee, len(resp['Items'])))
         found_app_requests: List[AppRequest] = []
         for item in resp['Items']:
             found_app_requests.append(AppRequest(**item))
 
         return found_app_requests
 
-    @staticmethod
-    def get_by_requestee(requestee: str, status: str = None) -> List[AppRequest]:
+    def get_by_requestee(self, requestee: str, status: str = None) -> List[AppRequest]:
         """ Returns all requests made for a user of a particular status if status is present
             Returns all requests made for a user otherwise
         """
@@ -67,23 +70,23 @@ class RequestService:
         if status is not None:
             keyConditionExpression = Key('requestee').eq(requestee) & Key('status').eq(status)
 
-        resp = table.query(
+        resp = self.table.query(
             IndexName='RequesteeAndStatusIndex',
             KeyConditionExpression=keyConditionExpression,
             Select='ALL_ATTRIBUTES'
         )
         assert_dynamodb_response(resp, expected_attribute='Items')
 
-        logger.info('get_by_requestee: {} returned {} Items'.format(requestee, len(resp['Items'])))
+        self.logger.info('get_by_requestee: {} returned {} Items'.format(requestee, len(resp['Items'])))
         found_app_requests: List[AppRequest] = []
         for item in resp['Items']:
             found_app_requests.append(AppRequest(**item))
 
         return found_app_requests
 
-    @staticmethod
-    def create(cognito_user: CognitoUser, new_request: NewAppRequest) -> AppRequest:
-        logger.debug('create called')
+    def create(self, cognito_user: CognitoUser, new_request: NewAppRequest) -> AppRequest:
+        from app import accountService
+        self.logger.debug('create called')
 
         request_attr: dict = {'accountId': new_request.accountId,
                               'requestee': new_request.requestee if new_request.requestee is not None else cognito_user.sub,
@@ -93,7 +96,7 @@ class RequestService:
                               'requestedOnResource': new_request.requestedOnResource,
                               'requestType': new_request.requestType
                               }
-        AccountService.hydrate_request(request_attr)
+        accountService.hydrate_request(request_attr)
         # CognitoService.hydrate_request(request_attr)
 
         newAppRequest = AppRequest(**request_attr)
@@ -103,13 +106,13 @@ class RequestService:
         # table = db.dynamodb_resource.Table(requests_table_name)
 
         # Create App Request
-        response = table.put_item(
+        response = self.table.put_item(
             Item=newAppRequest_dict
         )
         assert_dynamodb_response(response)
-        logger.info('App Request with id {} created.'.format(newAppRequest.requestId))
+        self.logger.info('App Request with id {} created.'.format(newAppRequest.requestId))
 
-        response = table.get_item(
+        response = self.table.get_item(
             Key={
                 'accountId': str(newAppRequest.accountId),
                 'requestId': str(newAppRequest.requestId)
@@ -121,15 +124,14 @@ class RequestService:
         persisted_request = response['Item']
         return AppRequest(**persisted_request)
 
-    @staticmethod
-    def get_by_primaryKeys(accountId: str, requestId: str) -> Optional[AppRequest]:
+    def get_by_primaryKeys(self, accountId: str, requestId: str) -> Optional[AppRequest]:
         """Returns a request with
             Key={
                 accountId: ***
                 requestId: ***
             }
         """
-        resp = table.get_item(
+        resp = self.table.get_item(
             Key={
                 'accountId': accountId,
                 'requestId': requestId
@@ -139,16 +141,15 @@ class RequestService:
         assert_dynamodb_response(resp)
 
         if 'Item' not in resp:
-            logger.info('requestId {} does not exist'.format(requestId))
+            self.logger.info('requestId {} does not exist'.format(requestId))
             return None
         else:
-            logger.info('requestId {} exists'.format(requestId))
+            self.logger.info('requestId {} exists'.format(requestId))
             return AppRequest(**resp['Item'])
 
-    @staticmethod
-    def update_status(updateAppRequest: UpdateAppRequest, new_status: str, updateHistory: UpdateHistory) -> None:
+    def update_status(self, updateAppRequest: UpdateAppRequest, new_status: str, updateHistory: UpdateHistory) -> None:
 
-        resp = table.update_item(
+        resp = self.table.update_item(
             Key={
                 'accountId': updateAppRequest.accountId,
                 'requestId': updateAppRequest.requestId

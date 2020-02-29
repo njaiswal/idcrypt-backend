@@ -9,11 +9,9 @@ from webargs.flaskparser import use_args
 from .authz.newAccountAuth import NewAccountAuth
 from .model import Account, NewAccount
 from .schema import AccountSchema, NewAccountSchema
-from .service import AccountService
 from ..repos.model import Repo
-from ..repos.service import RepoService
 from ..utils import get_cognito_user
-from app import s3
+from app import s3, accountService, repoService
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +39,11 @@ class AccountResource(Resource):
         newAccountAuth.doChecks()
 
         try:
-            created_account: Account = AccountService.create(new_account, cognito_user=cognito_user)
-            created_repo: Repo = RepoService.create(created_account.accountId, new_account.repo, cognito_user=cognito_user)
+            created_account: Account = accountService.create(new_account, cognito_user=cognito_user)
+            created_repo: Repo = repoService.create(created_account.accountId, new_account.repo,
+                                                    cognito_user=cognito_user)
             created_bucket = s3.createRepoBucket(created_account, created_repo)
-            AccountService.update(created_account.accountId, 'bucketName', created_bucket)
+            accountService.update(created_account.accountId, 'bucketName', created_bucket)
             return created_account
         except Exception as exception:
             logger.error('Exception during new account creation: {}'.format(exception))
@@ -67,7 +66,7 @@ class AccountIdResource(Resource):
             abort(HTTPStatus.BAD_REQUEST, 'Invalid account update.')
 
         # Make sure that the account id is present
-        account: Account = AccountService.get_by_id(account_id)
+        account: Account = accountService.get_by_id(account_id)
         if account is None:
             abort(404, 'Account Id not found.')
 
@@ -85,7 +84,7 @@ class AccountIdResource(Resource):
 
         # Finally do the update one attribute a time
         for k, v in args.items():
-            AccountService.update(account_id, k, v)
+            accountService.update(account_id, k, v)
 
         # Return updated account back
-        return AccountService.get_by_id(account_id)
+        return accountService.get_by_id(account_id)

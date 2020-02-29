@@ -122,3 +122,31 @@ Feature: As a user I want to join/leave a account
       "message": "Similar request already exists. Please cancel it to raise a new one."
     }
     """
+
+  Scenario: Member of a account tries to submit joinAccount request for another account
+    Given backend app is setup
+    And i am logged in as joe@example.com
+    When i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
+    Then i should get response with status code 200
+
+    And i am logged in as keving@example.com
+    When i submit create account request with '{ "name": "Kevin Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
+    Then i should get response with status code 200
+
+    When i am logged in as sam@example.com
+    And i submit request of type joinAccount for 'Joe Car Hire'
+
+    When i am logged in as joe@example.com
+    And i mark last_submitted request as approved
+    And i wait for last_submitted request to get 'closed'
+
+    When i am logged in as sam@example.com
+    And i submit request of type joinAccount for 'Kevin Car Hire'
+
+    Then i should get response with status code 400 and data
+      """
+      {
+        "message" : "You are already a member of another Account"
+      }
+      """
+

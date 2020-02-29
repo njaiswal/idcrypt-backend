@@ -6,15 +6,13 @@ from flask_accepts import responds, accepts
 from flask_restplus import Namespace, Resource
 from webargs.flaskparser import use_args
 from webargs import fields, validate
-
 from .authz.updateAppRequestAuth import UpdateAppRequestAuth
 from .authz.commonAuth import CommonAuth
 from .authz.newAppRequestAuth import NewAppRequestAuth
 from .model import NewAppRequest, AppRequest, UpdateAppRequest, UpdateHistory
 from .schema import AppRequestSchema, NewAppRequestSchema, UpdateAppRequestSchema
-from .service import RequestService
+from app import requestService, accountsService
 from ..account.model import Account
-from ..accounts.service import AccountsService
 from ..utils import get_cognito_user
 
 logger = logging.getLogger(__name__)
@@ -38,18 +36,18 @@ class RequestResource(Resource):
 
         requested_status = [None]
         if 'status' in args:
-            requested_status = ['approved', 'denied', 'failed', 'cancelled'] if args['status'] == 'archived' else [args['status']]
+            requested_status = ['approved', 'denied', 'failed', 'cancelled', 'closed'] if args['status'] == 'archived' else [args['status']]
 
         # First check if user is owner of a account, if yes then return all requests on the account
-        my_account: List[Account] = AccountsService.get_by_owner(cognito_user.sub)
+        my_account: List[Account] = accountsService.get_by_owner(cognito_user.sub)
 
         foundAppRequests : List[AppRequest] = []
         for status in requested_status:
             if my_account is not None and len(my_account) != 0:
-                foundAppRequests += RequestService.get_by_accountId(my_account[0].accountId, status=status)
+                foundAppRequests += requestService.get_by_accountId(my_account[0].accountId, status=status)
             else:
                 # User is not a owner so return all requests initiated by the user
-                foundAppRequests += RequestService.get_by_requestee(cognito_user.sub, status=status)
+                foundAppRequests += requestService.get_by_requestee(cognito_user.sub, status=status)
 
         return foundAppRequests
 
@@ -64,7 +62,7 @@ class RequestResource(Resource):
         CommonAuth(new_request, cognito_user).doChecks()
         NewAppRequestAuth(new_request, cognito_user).doChecks()
 
-        return RequestService.create(cognito_user, new_request)
+        return requestService.create(cognito_user, new_request)
 
     @use_args({"status": fields.Str(required=True,
                                     location="query",
@@ -88,7 +86,7 @@ class RequestResource(Resource):
                               }
         updateHistory: UpdateHistory = UpdateHistory(**updateHistory_dict)
 
-        RequestService.update_status(updateAppRequest, args['status'], updateHistory)
+        requestService.update_status(updateAppRequest, args['status'], updateHistory)
 
         # Finally return back updated request
-        return RequestService.get_by_primaryKeys(updateAppRequest.accountId, updateAppRequest.requestId)
+        return requestService.get_by_primaryKeys(updateAppRequest.accountId, updateAppRequest.requestId)

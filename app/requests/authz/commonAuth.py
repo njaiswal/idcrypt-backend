@@ -1,10 +1,7 @@
 from typing import List
-
 from flask_restplus import abort
-
-from app.account.model import SameDomainAccount
-from app.account.service import AccountService
-from app.accounts.service import AccountsService
+from app import accountService, accountsService
+from app.account.model import Account
 from app.cognito.cognitoUser import CognitoUser
 from app.requests.model import NewAppRequest, AppRequest
 
@@ -32,7 +29,7 @@ class CommonAuth:
         self.__resourceExists()
 
     def __accountExists(self):
-        if AccountService.get_by_id(self.appRequest.accountId) is None:
+        if accountService.get_by_id(self.appRequest.accountId) is None:
             abort(404, 'accountId not found')
 
     def __checkRequester(self):
@@ -44,7 +41,7 @@ class CommonAuth:
             # joinAccount is special since a non-member can raise joinAccount request
             if self.appRequest.requestType in ['joinAccount']:
                 user_domain = self.user.email.split('@')[1]
-                related_accounts: List[SameDomainAccount] = AccountsService.get_by_domain(user_domain)
+                related_accounts: List[Account] = accountsService.get_by_domain(user_domain)
 
                 user_domain_matches_account_domain = False
                 for account in related_accounts:

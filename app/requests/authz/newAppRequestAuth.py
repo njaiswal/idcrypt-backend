@@ -1,12 +1,9 @@
 from typing import List
-
 from flask_restplus import abort
-
+from app import accountsService, requestService
 from app.account.model import Account
-from app.accounts.service import AccountsService
 from app.cognito.cognitoUser import CognitoUser
 from app.requests.model import NewAppRequest, AppRequest
-from app.requests.service import RequestService
 
 
 class NewAppRequestAuth:
@@ -38,7 +35,8 @@ class NewAppRequestAuth:
         # - pending
         # Then a new joinAccount request is not allowed
         if self.request.requestType == 'joinAccount':
-            users_joinAccount_requests: List[AppRequest] = RequestService.get_by_requesteeAndRequestType(
+            # Make sure that a joinAccount request is not pending, closed or approved already
+            users_joinAccount_requests: List[AppRequest] = requestService.get_by_requesteeAndRequestType(
                 self.user.sub,
                 'joinAccount'
             )
@@ -47,8 +45,11 @@ class NewAppRequestAuth:
                 if joinAccount_request.status in ['approved',
                                                   'closed',
                                                   'pending']:
+                    message = 'You are already a member of another Account' \
+                        if joinAccount_request.status in ['approved', 'closed'] \
+                        else 'Similar request already exists. Please cancel it to raise a new one.'
                     abort(400,
-                          message='Similar request already exists. Please cancel it to raise a new one.')
+                          message=message)
 
         else:
             abort(400,
@@ -65,7 +66,7 @@ class NewAppRequestAuth:
         if self.request.requestType == 'joinAccount':
             # Make sure that owners are not allowed to raise joinAccount request for self
             requestee = self.user.sub if self.request.requestee is None else self.request.requestee
-            my_account: List[Account] = AccountsService.get_by_owner(requestee)
+            my_account: List[Account] = accountsService.get_by_owner(requestee)
             if my_account is not None and len(my_account) > 0:
                 abort(403, 'Owners of account are not allowed to raise join Account requests for self.')
 

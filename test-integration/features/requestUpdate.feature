@@ -81,6 +81,42 @@ Feature: As a user I want to update my requests
       ]
     }
     """
+    And i wait for last_submitted request to get 'closed'
+    When i am logged in as sam@example.com
+    And i GET "/requests/"
+    Then i should get response with status code 200 and data
+    """
+    [
+      {
+        "requestId": "***",
+        "accountId": "***",
+        "accountName": "Joe Car Hire",
+        "requestee": "e179e95c00e7718ab4a23840f992ea63",
+        "requestor": "e179e95c00e7718ab4a23840f992ea63",
+        "requesteeEmail": "sam@example.com",
+        "requestorEmail": "sam@example.com",
+        "requestType": "joinAccount",
+        "requestedOnResource": "***",
+        "requestedOnResourceName": "Joe Car Hire",
+        "status": "closed",
+        "createdAt": "***",
+        "updateHistory": [
+          {
+            "action": "approved",
+            "updatedBy": "f5b8fb60c6116331da07c65b96a8a1d1",
+            "updatedByEmail": "joe@example.com",
+            "updatedAt": "***"
+          },
+          {
+            "action": "closed",
+            "updatedBy": "007",
+            "updatedByEmail": "automation@idcrypt.io",
+            "updatedAt": "***"
+          }
+        ]
+      }
+    ]
+    """
 
   Scenario: Owner can deny joinAccount request
     Given backend app is setup

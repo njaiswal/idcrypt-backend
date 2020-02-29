@@ -3,7 +3,7 @@ import logging
 from flask import request
 from flask_accepts import responds
 from flask_restplus import Namespace, Resource
-from .service import AccountsService
+from .. import accountsService
 from ..account.model import Account
 from ..account.schema import AccountSchema
 from ..utils import get_cognito_user
@@ -26,9 +26,9 @@ class AccountsResource(Resource):
         cognito_user = get_cognito_user(request)
 
         # First check if user is owner of a account
-        my_account = AccountsService.get_by_owner(cognito_user.sub)
+        my_account = accountsService.get_by_owner(cognito_user.sub)
         if my_account is not None and len(my_account) != 0:
             return my_account
 
         # Return all accounts that match user's domain. User can join these accounts.
-        return AccountsService.get_by_domain(cognito_user.email.split('@')[1])
+        return accountsService.get_by_domain(cognito_user.email.split('@')[1])

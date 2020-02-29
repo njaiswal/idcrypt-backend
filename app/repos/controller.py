@@ -6,9 +6,8 @@ from flask_restplus import Namespace, Resource, abort
 
 from .model import Repo
 from .schema import RepoSchema
-from .service import RepoService
+from .. import repoService, accountService
 from ..account.model import Account
-from ..account.service import AccountService
 from ..utils import get_cognito_user
 
 logger = logging.getLogger(__name__)
@@ -26,11 +25,11 @@ class RepoResource(Resource):
         """Returns user's account repositories"""
 
         cognito_user = get_cognito_user(request)
-        account: Account = AccountService.get_by_user(cognito_user)
+        account: Account = accountService.get_by_user(cognito_user)
         if account is None:
             abort(404, "User's Account not found")
 
-        return RepoService.get_by_accountId(account.accountId)
+        return repoService.get_by_accountId(account.accountId)
 
     # @accepts(schema=NewAppRequestSchema, api=api)
     # @responds(schema=AppRequestSchema)

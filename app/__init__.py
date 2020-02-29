@@ -1,16 +1,23 @@
 from flask import Flask
 from flask_restplus import Api, abort
 from webargs.flaskparser import parser
-
 from app.cognito.idp import IDP
 from app.database.db import DB
 from flask_cors import CORS
-
+from app.repos.service import RepoService
+from app.requests.service import RequestService
+from app.account.service import AccountService
+from app.accounts.service import AccountsService
 from app.storage.s3 import S3
 
 db = DB()
 s3 = S3()
 idp = IDP()
+accountService: AccountService = AccountService()
+accountsService: AccountsService = AccountsService()
+requestService: RequestService = RequestService()
+repoService: RepoService = RepoService()
+
 
 def create_app(version="v1.0", env=None):
     from app.routes import register_routes
@@ -40,10 +47,16 @@ def create_app(version="v1.0", env=None):
     idp.init(app)
 
     # Initialize DB
-    db.init(app)
+    db.init(app.config.get('REGION_NAME'), app.config.get('DYNAMODB_ENDPOINT_URL'))
 
     # Initialize S3
     s3.init(app)
+
+    # Initialize services
+    accountService.init(db, 'Accounts-{}'.format(env))
+    accountsService.init(db, 'Accounts-{}'.format(env))
+    requestService.init(db, 'Requests-{}'.format(env))
+    repoService.init(db, 'Repos-{}'.format(env))
 
     # Register routes
     register_routes(api)

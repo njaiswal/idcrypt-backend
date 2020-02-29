@@ -3,7 +3,8 @@
   "description": "",
   "version": "0.1.0",
   "dependencies": {
-    "serverless-dynamodb-local": "^0.2.39"
+    "serverless-dynamodb-local": "^0.2.39",
+    "serverless-plugin-offline-dynamodb-stream": "^1.0.19"
   },
   "devDependencies": {
     "serverless-domain-manager": "^3.3.1",

@@ -1,10 +1,8 @@
 from flask_restplus import abort
-
+from app import accountService, requestService
 from app.account.model import Account
-from app.account.service import AccountService
 from app.cognito.cognitoUser import CognitoUser
 from app.requests.model import AppRequest, UpdateAppRequest
-from app.requests.service import RequestService
 
 
 class UpdateAppRequestAuth:
@@ -24,7 +22,7 @@ class UpdateAppRequestAuth:
         self.__checkIfUserAllowedToChangeStatus()
 
     def __checkIfRequestExists(self):
-        requestInDb: AppRequest = RequestService.get_by_primaryKeys(self.request.accountId, self.request.requestId)
+        requestInDb: AppRequest = requestService.get_by_primaryKeys(self.request.accountId, self.request.requestId)
         if requestInDb is None:
             abort(404, message='Request not found.')
         self.requestInDb = requestInDb
@@ -56,7 +54,7 @@ class UpdateAppRequestAuth:
         # Repo approvers can only approve, deny doc requests
         # Only worker identity can mark request as 'closed' and 'failed'
 
-        account: Account = AccountService.get_by_id(self.request.accountId)
+        account: Account = accountService.get_by_id(self.request.accountId)
         if account is None:
             abort(404, message='Account not found.')
 

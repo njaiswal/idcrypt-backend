@@ -5,20 +5,6 @@ from typing import List
 from app.repos.model import NewRepo
 
 
-class SameDomainAccount:
-
-    def __init__(self, accountId, name, domain, email, status, createdAt, owner, members: List[str], admins: List[str]):
-        self.accountId = accountId
-        self.name = name
-        self.domain = domain
-        self.email = email
-        self.status = status
-        self.createdAt = createdAt
-        self.owner = owner
-        self.members: List[str] = members
-        self.admins: List[str] = admins
-
-
 class Account:
     """An Account"""
 

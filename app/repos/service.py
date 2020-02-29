@@ -1,27 +1,30 @@
 import logging
 import json
 from typing import Optional, List
-
 from boto3.dynamodb.conditions import Key
 from flask_restplus import abort
-
-from app import db
 from .model import Repo, NewRepo
 from .schema import RepoSchema
+from app.database.db import DB
 from ..cognito.cognitoUser import CognitoUser
 from ..database.db import assert_dynamodb_response
 
-logger = logging.getLogger(__name__)
-
-table_name = db.table_names['repos']
-table = db.dynamodb_resource.Table(table_name)
-
 
 class RepoService:
-    @staticmethod
-    def get_by_id(accountId: str, repoId: str) -> Optional[Repo]:
-        logger.info('RepoService get_by_id called')
-        resp = table.get_item(
+    logger = logging.getLogger(__name__)
+
+    db = None
+    table_name = None
+    table = None
+
+    def init(self, db: DB, table_name):
+        self.db = db
+        self.table_name = table_name
+        self.table = db.dynamodb_resource.Table(self.table_name)
+
+    def get_by_id(self, accountId: str, repoId: str) -> Optional[Repo]:
+        self.logger.info('RepoService get_by_id called')
+        resp = self.table.get_item(
             Key={
                 'accountId': accountId,
                 'repoId': repoId
@@ -31,10 +34,10 @@ class RepoService:
         assert_dynamodb_response(resp)
 
         if 'Item' in resp:
-            logger.info('get_by_id for accountId={}, repoId={} returned an Item'.format(accountId, repoId))
+            self.logger.info('get_by_id for accountId={}, repoId={} returned an Item'.format(accountId, repoId))
             return Repo(**resp['Item'])
         else:
-            logger.error('get_by_id for accountId={}, repoId={} returned None'.format(accountId, repoId))
+            self.logger.error('get_by_id for accountId={}, repoId={} returned None'.format(accountId, repoId))
             return None
 
     # @staticmethod
@@ -67,10 +70,9 @@ class RepoService:
     #     else:
     #         return True
 
-    @staticmethod
-    def repo_by_name_exists(accountId: str, name: str) -> bool:
+    def repo_by_name_exists(self, accountId: str, name: str) -> bool:
         """Verify that no other repo with same name exists within the accountId"""
-        resp = table.query(
+        resp = self.table.query(
             IndexName='AccountIdAndRepoNameIndex',
             KeyConditionExpression=Key('accountId').eq(accountId) & Key('name').eq(name),
             Select='COUNT'
@@ -82,10 +84,9 @@ class RepoService:
         else:
             return True
 
-    @staticmethod
-    def create(accountId: str, new_repo: NewRepo, cognito_user: CognitoUser = None) -> Repo:
+    def create(self, accountId: str, new_repo: NewRepo, cognito_user: CognitoUser = None) -> Repo:
 
-        logger.debug('RepoService create called')
+        self.logger.debug('RepoService create called')
 
         new_attrs: dict = {'accountId': accountId,
                            'name': new_repo.name,
@@ -101,33 +102,31 @@ class RepoService:
         new_repo_dict = RepoSchema().dump(repo)
 
         # Create Repo
-        put_response = table.put_item(
+        put_response = self.table.put_item(
             Item=new_repo_dict
         )
-        logger.debug('put_response: {}'.format(json.dumps(put_response, indent=4, sort_keys=True)))
+        self.logger.debug('put_response: {}'.format(json.dumps(put_response, indent=4, sort_keys=True)))
 
-        persisted_repo = RepoService.get_by_id(repo.accountId, repo.repoId)
+        persisted_repo = self.get_by_id(repo.accountId, repo.repoId)
         if persisted_repo is None:
             abort(500, message='Could not create Repo')
 
         return persisted_repo
 
-    @staticmethod
-    def get_by_accountId(accountId: str) -> List[Repo]:
+    def get_by_accountId(self, accountId: str) -> List[Repo]:
         """Returns all repos for accountId """
         keyConditionExpression = Key('accountId').eq(accountId)
 
-        resp = table.query(
+        resp = self.table.query(
             IndexName='AccountIdIndex',
             KeyConditionExpression=keyConditionExpression,
             Select='ALL_ATTRIBUTES'
         )
         assert_dynamodb_response(resp, expected_attribute='Items')
 
-        logger.info('get_by_accountId: {} returned {} Items'.format(accountId, len(resp['Items'])))
+        self.logger.info('get_by_accountId: {} returned {} Items'.format(accountId, len(resp['Items'])))
         found_repos: List[Repo] = []
         for item in resp['Items']:
             found_repos.append(Repo(**item))
 
         return found_repos
-

@@ -1,8 +1,7 @@
 from flask_restplus import abort
+from app import accountService
 from app.account.model import NewAccount
-from app.account.service import AccountService
 from app.cognito.cognitoUser import CognitoUser
-from app.repos.service import RepoService
 
 
 class NewAccountAuth:
@@ -20,12 +19,12 @@ class NewAccountAuth:
         self.__checkOwnerAccounts()
 
     def __checkAccountName(self):
-        if AccountService.account_by_name_exists(self.newAccountRequest.name):
+        if accountService.account_by_name_exists(self.newAccountRequest.name):
             abort(400,
                   'Account name \'{}\' already exists. Please choose another name.'.format(self.newAccountRequest.name))
 
     def __checkOwnerAccounts(self):
-        if AccountService.owner_account_exists(self.user.sub):
+        if accountService.owner_account_exists(self.user.sub):
             abort(400, 'You are already marked as owner of another account.')
 
     # def __checkRepoName(self):

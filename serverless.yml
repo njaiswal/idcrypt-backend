@@ -50,6 +50,8 @@ custom:
       seed: true
       convertEmptyValues: true
 
+
+
 #  corsOrigins:
 #    dev:
 #      - https://dev.idcrypt.io
@@ -111,6 +113,17 @@ functions:
             name: authorizer
             arn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
           cors: true
+  idcryptEventProcessor:
+    environment:
+      ENV: ${opt:stage, 'dev'}
+    handler: requestProcessor.handler
+    events:
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt: [ RequestsDynamoDBTable, StreamArn ]
+          batchSize: 1
+          startingPosition: LATEST
 
 resources:
   Resources:
@@ -148,15 +161,7 @@ resources:
               - AttributeName: domain
                 KeyType: HASH
             Projection:
-              NonKeyAttributes:
-                - name
-                - email
-                - status
-                - createdAt
-                - owner
-                - members
-                - admins
-              ProjectionType: INCLUDE
+              ProjectionType: ALL
             ProvisionedThroughput:
               ReadCapacityUnits: 1
               WriteCapacityUnits: 1
@@ -192,6 +197,8 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:custom.tableName.requests}
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE
         GlobalSecondaryIndexes:
           - IndexName: RequesteeAndStatusIndex
             KeySchema:
@@ -280,4 +287,3 @@ plugins:
   - serverless-offline
   - serverless-dynamodb-local
   - serverless-wsgi
-  - serverless-localstack
