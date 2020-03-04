@@ -49,6 +49,15 @@ custom:
       migrate: true
       seed: true
       convertEmptyValues: true
+  cognito:
+    dev:
+      userPoolArn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+    qa:
+      userPoolArn: xxx
+    uat:
+      userPoolArn: xxx
+    prod:
+      userPoolArn: xxx
 
 
 
@@ -90,6 +99,11 @@ provider:
         - dynamodb:Query
       Resource:
         - Fn::Join: ["", [ "arn:aws:dynamodb:", { "Ref": "AWS::Region" }, ':', { Ref: "AWS::AccountId" }, ":table/*" ]]
+    - Effect: Allow
+      Action:
+        - cognito-idp:ListUsers
+      Resource: ${self:custom.cognito.${self:provider.stage}.userPoolArn}
+
   environment:
     STAGE: ${opt:stage}
 
@@ -105,13 +119,13 @@ functions:
           cors: true
           authorizer:
             name: authorizer
-            arn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+            arn: ${self:custom.cognito.${self:provider.stage}.userPoolArn}
       - http:
           path: /{proxy+}
           method: ANY
           authorizer:
             name: authorizer
-            arn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+            arn: ${self:custom.cognito.${self:provider.stage}.userPoolArn}
           cors: true
   idcryptEventProcessor:
     environment:
