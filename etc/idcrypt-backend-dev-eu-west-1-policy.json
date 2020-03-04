@@ -195,6 +195,15 @@
     {
       "Effect": "Allow",
       "Action": [
+        "cognito-idp:ListUsers"
+      ],
+      "Resource": [
+        "arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
         "s3:CreateBucket"
       ],
       "Resource": [
