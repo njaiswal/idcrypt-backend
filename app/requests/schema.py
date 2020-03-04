@@ -1,6 +1,6 @@
 from marshmallow import fields, Schema, validate, post_load
 
-from app.requests.model import AppRequest, NewAppRequest, UpdateAppRequest, UpdateHistory
+from app.requests.model import AppRequest, NewAppRequest, UpdateAppRequest, UpdateHistory, RequestType
 
 
 class UpdateHistorySchema(Schema):
@@ -76,22 +76,22 @@ class NewAppRequestSchema(Schema):
 
     accountId = fields.String(attribute="accountId", required=True)
     requestType = fields.String(attribute="requestType", required=True,
-                                validate=validate.OneOf(['suspendAccount', 'deleteAccount',
-                                                         'joinAccount', 'leaveAccount',
-                                                         'joinAsAccountAdmin', 'leaveAsAccountAdmin',
-                                                         'joinAsApprovers', 'leaveAsApprover',
-                                                         'joinAsRepoUser', 'leaveAsRepoUser']))
+                                validate=validate.OneOf([
+                                    RequestType.joinAccount.value, RequestType.leaveAccount.value,
+                                    RequestType.joinAsRepoApprover.value, RequestType.leaveAsRepoApprover.value,
+                                    RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value
+                                ]))
     requestedOnResource = fields.String(attribute="requestedOnResource", required=True)
 
-    # requestee is optional since by default requestee and requestor is the same user
-    requestee = fields.String(attribute="requestee", required=False)
+    # requesteeEmail is optional since by default requestee and requestor is the same user
+    requesteeEmail = fields.String(attribute="requesteeEmail", required=False)
 
     class Meta:
         fields = (
             "accountId",
             "requestType",
             "requestedOnResource",
-            "requestee"
+            "requesteeEmail"
         )
         ordered = True
 

@@ -1,17 +1,17 @@
 import logging
 from http import HTTPStatus
+from typing import List
 from flask import request
 from flask_accepts import accepts, responds
 from flask_restplus import Namespace, Resource, abort
 from webargs import fields, validate
 from webargs.flaskparser import use_args
-
 from .authz.newAccountAuth import NewAccountAuth
-from .model import Account, NewAccount
-from .schema import AccountSchema, NewAccountSchema
+from .model import Account, NewAccount, AccountMember
+from .schema import AccountSchema, NewAccountSchema, AccountMemberSchema
 from ..repos.model import Repo
 from ..utils import get_cognito_user
-from app import s3, accountService, repoService
+from app import s3, accountService, repoService, idp
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,7 @@ class AccountResource(Resource):
                                                     cognito_user=cognito_user)
             created_bucket = s3.createRepoBucket(created_account, created_repo)
             accountService.update(created_account.accountId, 'bucketName', created_bucket)
+            idp.hydrateAccounts([created_account])
             return created_account
         except Exception as exception:
             logger.error('Exception during new account creation: {}'.format(exception))
@@ -87,4 +88,48 @@ class AccountIdResource(Resource):
             accountService.update(account_id, k, v)
 
         # Return updated account back
-        return accountService.get_by_id(account_id)
+        updated_account = accountService.get_by_id(account_id)
+        idp.hydrateAccounts([updated_account])
+        return updated_account
+
+
+@api.route("/<string:account_id>/members")
+@api.param("account_id", "Account ID")
+class AccountMemberResource(Resource):
+
+    @responds(schema=AccountMemberSchema, many=True)
+    def get(self, account_id: str) -> List[AccountMember]:
+        """Get Account Members"""
+
+        # Make sure that the account id is present
+        account: Account = accountService.get_by_id(account_id)
+        if account is None:
+            abort(404, 'Account Id not found.')
+
+        # Make sure that the user can get info about account members
+        cognito_user = get_cognito_user(request)
+        if cognito_user.sub not in account.members:
+            abort(403, message='Only members of account allowed to get account membership details.')
+
+        # Return account membership
+        account = accountService.get_by_id(account_id)
+        repos: List[Repo] = repoService.get_by_accountId(account.accountId)
+
+        accountMembership: List[AccountMember] = []
+        for sub in account.members:
+            attributes = idp.get_user_by_sub(sub)['Attributes']
+            member_attributes = dict()
+            for attr in attributes:
+                member_attributes[attr['Name']] = attr['Value']
+            m = AccountMember(**{
+                'email': member_attributes['email'],
+                'email_verified': member_attributes['email_verified']
+            })
+            for repo in repos:
+                if sub in repo.users:
+                    m.addRepoAccess(repo.name)
+                if sub in repo.approvers:
+                    m.addRepoApprover(repo.name)
+            accountMembership.append(m)
+
+        return accountMembership

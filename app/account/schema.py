@@ -1,6 +1,6 @@
 from marshmallow import fields, Schema, validate, post_load
 
-from app.account.model import NewAccount
+from app.account.model import NewAccount, AccountMember
 from app.repos.schema import NewRepoSchema
 
 
@@ -22,7 +22,9 @@ class AccountSchema(Schema):
     createdAt = fields.String(attribute="createdAt", required=True)
 
     class Meta:
-        fields = ("accountId", "name", "owner", "domain", "address", "email", "status", "tier", "members", "admins", "createdAt")
+        fields = (
+            "accountId", "name", "owner", "domain", "address", "email", "status", "tier", "members", "admins",
+            "createdAt")
         ordered = True
 
 
@@ -45,3 +47,24 @@ class NewAccountSchema(Schema):
     @post_load
     def create_new(self, data, **kwarg):
         return NewAccount(**data)
+
+
+class AccountMemberSchema(Schema):
+    """Account members"""
+    email = fields.String(attribute="email", required=True)
+    email_verified = fields.String(attribute="email_verified", required=True)
+    repoAccess = fields.List(fields.String(), attribute="repoAccess", required=True)
+    repoApprover = fields.List(fields.String(), attribute="repoApprover", required=True)
+
+    class Meta:
+        fields = [
+            "email",
+            "email_verified",
+            "repoAccess",
+            "repoApprover"
+        ]
+        ordered = True
+
+    @post_load
+    def create_new(self, data, **kwarg):
+        return AccountMember(**data)

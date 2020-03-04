@@ -1,8 +1,7 @@
 import logging
 import json
-from typing import List
+from typing import List, Optional
 from boto3.dynamodb.conditions import Key
-from flask_restplus import abort
 from ..database.db import DB
 from ..account import PARTITION_KEY
 from ..account.model import Account
@@ -21,19 +20,17 @@ class AccountsService:
         self.table_name = table_name
         self.table = db.dynamodb_resource.Table(self.table_name)
 
-    def get_by_id(self, accountId: str):
-        get_response = self.table.get_item(
+    def get_by_id(self, accountId: str) -> Optional[Account]:
+        resp = self.table.get_item(
             Key={
                 PARTITION_KEY: accountId
             },
             ConsistentRead=True
         )
-
-        # logger.info('get_response: {}'.format(json.dumps(get_response, indent=4, sort_keys=True)))
-        if 'Item' in get_response:
-            return get_response['Item']
-        else:
-            abort(404, 'Account ID not found')
+        assert_dynamodb_response(resp)
+        if 'Item' not in resp:
+            return None
+        return Account(**resp['Item'])
 
     def get_by_owner(self, owner: str) -> List[Account]:
         resp = self.table.query(
@@ -57,6 +54,7 @@ class AccountsService:
             KeyConditionExpression=Key('domain').eq(domain),
             Select='ALL_PROJECTED_ATTRIBUTES'
         )
+        assert_dynamodb_response(resp)
 
         same_domain_accounts: List[Account] = []
 

@@ -7,7 +7,6 @@ from flask_restplus import Namespace, Resource
 from webargs.flaskparser import use_args
 from webargs import fields, validate
 from .authz.updateAppRequestAuth import UpdateAppRequestAuth
-from .authz.commonAuth import CommonAuth
 from .authz.newAppRequestAuth import NewAppRequestAuth
 from .model import NewAppRequest, AppRequest, UpdateAppRequest, UpdateHistory
 from .schema import AppRequestSchema, NewAppRequestSchema, UpdateAppRequestSchema
@@ -59,7 +58,6 @@ class RequestResource(Resource):
         new_request: NewAppRequest = NewAppRequestSchema().load(api.payload)
         cognito_user = get_cognito_user(request)
 
-        CommonAuth(new_request, cognito_user).doChecks()
         NewAppRequestAuth(new_request, cognito_user).doChecks()
 
         return requestService.create(cognito_user, new_request)

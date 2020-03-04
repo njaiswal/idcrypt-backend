@@ -152,10 +152,10 @@ class S3:
 
         # Create meta info txt file
         self.logger.info('Going to add info.txt file to s3 bucket within the repo: {}'.format(createdBucketName))
-        self.writeRepoMetaInfo(account, repo, createdBucketName, repoFolderName)
+        self.writeRepoMetaInfo(account, repo, createdBucketName)
         return createdBucketName
 
-    def writeRepoMetaInfo(self, account: Account, repo: Repo, bucketName: str, repoFolderName: str):
+    def writeRepoMetaInfo(self, account: Account, repo: Repo, bucketName: str):
         fd, path = tempfile.mkstemp()
         try:
             with os.fdopen(fd, 'w') as tmp:
@@ -165,6 +165,7 @@ class S3:
                     'Repo Name: {} '.format(repo.name)
                 ]
                 tmp.writelines(metaInfo)
+            repoFolderName = repo.name.replace(' ', '_')
             self.client.upload_file(path, bucketName, '{}/metaInfo.txt'.format(repoFolderName))
         finally:
             os.remove(path)

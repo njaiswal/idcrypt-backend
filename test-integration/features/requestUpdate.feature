@@ -2,9 +2,9 @@ Feature: As a user I want to update my requests
 
   Scenario: User can cancel self request
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i mark joinAccount request as cancelled
     Then i should get response with status code 200 and data
@@ -13,10 +13,10 @@ Feature: As a user I want to update my requests
       "requestId": "***",
       "accountId": "***",
       "accountName": "Joe Car Hire",
-      "requestee": "e179e95c00e7718ab4a23840f992ea63",
-      "requestor": "e179e95c00e7718ab4a23840f992ea63",
-      "requesteeEmail": "sam@example.com",
-      "requestorEmail": "sam@example.com",
+      "requestee": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+      "requestor": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+      "requesteeEmail": "sam@jrn-limited.com",
+      "requestorEmail": "sam@jrn-limited.com",
       "requestType": "joinAccount",
       "requestedOnResource": "4ac4b5cf-4b16-4092-8e45-1cb05b390df8",
       "requestedOnResourceName": "Joe Car Hire",
@@ -25,8 +25,8 @@ Feature: As a user I want to update my requests
       "updateHistory": [
         {
           "action": "cancelled",
-          "updatedBy": "e179e95c00e7718ab4a23840f992ea63",
-          "updatedByEmail": "sam@example.com",
+          "updatedBy": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+          "updatedByEmail": "sam@jrn-limited.com",
           "updatedAt": "***"
         }
       ]
@@ -35,9 +35,9 @@ Feature: As a user I want to update my requests
 
   Scenario: User cancels self request twice
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     When i mark joinAccount request as cancelled
     When i mark joinAccount request as cancelled
@@ -50,11 +50,11 @@ Feature: As a user I want to update my requests
 
   Scenario: Owner can approve joinAccount request
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
-    When i am logged in as joe@example.com
+    When i am logged in as joe@jrn-limited.com
     And i mark joinAccount request as approved
     Then i should get response with status code 200 and data
     """
@@ -62,10 +62,10 @@ Feature: As a user I want to update my requests
       "requestId": "***",
       "accountId": "***",
       "accountName": "Joe Car Hire",
-      "requestee": "e179e95c00e7718ab4a23840f992ea63",
-      "requestor": "e179e95c00e7718ab4a23840f992ea63",
-      "requesteeEmail": "sam@example.com",
-      "requestorEmail": "sam@example.com",
+      "requestee": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+      "requestor": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+      "requesteeEmail": "sam@jrn-limited.com",
+      "requestorEmail": "sam@jrn-limited.com",
       "requestType": "joinAccount",
       "requestedOnResource": "4ac4b5cf-4b16-4092-8e45-1cb05b390df8",
       "requestedOnResourceName": "Joe Car Hire",
@@ -75,14 +75,14 @@ Feature: As a user I want to update my requests
         {
           "action": "approved",
           "updatedBy": "f5b8fb60c6116331da07c65b96a8a1d1",
-          "updatedByEmail": "joe@example.com",
+          "updatedByEmail": "joe@jrn-limited.com",
           "updatedAt": "***"
         }
       ]
     }
     """
     And i wait for last_submitted request to get 'closed'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i GET "/requests/"
     Then i should get response with status code 200 and data
     """
@@ -91,10 +91,10 @@ Feature: As a user I want to update my requests
         "requestId": "***",
         "accountId": "***",
         "accountName": "Joe Car Hire",
-        "requestee": "e179e95c00e7718ab4a23840f992ea63",
-        "requestor": "e179e95c00e7718ab4a23840f992ea63",
-        "requesteeEmail": "sam@example.com",
-        "requestorEmail": "sam@example.com",
+        "requestee": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+        "requestor": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+        "requesteeEmail": "sam@jrn-limited.com",
+        "requestorEmail": "sam@jrn-limited.com",
         "requestType": "joinAccount",
         "requestedOnResource": "***",
         "requestedOnResourceName": "Joe Car Hire",
@@ -104,7 +104,7 @@ Feature: As a user I want to update my requests
           {
             "action": "approved",
             "updatedBy": "f5b8fb60c6116331da07c65b96a8a1d1",
-            "updatedByEmail": "joe@example.com",
+            "updatedByEmail": "joe@jrn-limited.com",
             "updatedAt": "***"
           },
           {
@@ -120,11 +120,11 @@ Feature: As a user I want to update my requests
 
   Scenario: Owner can deny joinAccount request
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
-    When i am logged in as joe@example.com
+    When i am logged in as joe@jrn-limited.com
     And i mark joinAccount request as denied
     Then i should get response with status code 200 and data
     """
@@ -132,10 +132,10 @@ Feature: As a user I want to update my requests
       "requestId": "***",
       "accountId": "***",
       "accountName": "Joe Car Hire",
-      "requestee": "e179e95c00e7718ab4a23840f992ea63",
-      "requestor": "e179e95c00e7718ab4a23840f992ea63",
-      "requesteeEmail": "sam@example.com",
-      "requestorEmail": "sam@example.com",
+      "requestee": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+      "requestor": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+      "requesteeEmail": "sam@jrn-limited.com",
+      "requestorEmail": "sam@jrn-limited.com",
       "requestType": "joinAccount",
       "requestedOnResource": "4ac4b5cf-4b16-4092-8e45-1cb05b390df8",
       "requestedOnResourceName": "Joe Car Hire",
@@ -145,7 +145,7 @@ Feature: As a user I want to update my requests
         {
           "action": "denied",
           "updatedBy": "f5b8fb60c6116331da07c65b96a8a1d1",
-          "updatedByEmail": "joe@example.com",
+          "updatedByEmail": "joe@jrn-limited.com",
           "updatedAt": "***"
         }
       ]
@@ -154,11 +154,11 @@ Feature: As a user I want to update my requests
 
   Scenario: Non-existing requestId sent in request update payload
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
-    When i am logged in as joe@example.com
+    When i am logged in as joe@jrn-limited.com
     And i try to mark accountId=last_created_accountId and requestId=12345-12345-12345-12345 as approved
     Then i should get response with status code 404 and data
     """
@@ -169,11 +169,11 @@ Feature: As a user I want to update my requests
 
   Scenario: Non-existing accountId sent in request update payload
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
-    When i am logged in as joe@example.com
+    When i am logged in as joe@jrn-limited.com
     And i try to mark accountId=12345-12345-12345 and requestId=12345-12345-12345-12345 as approved
     Then i should get response with status code 404 and data
     """
@@ -184,27 +184,27 @@ Feature: As a user I want to update my requests
 
   Scenario: Owner tries to mark pending request straight to closed
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
-    When i am logged in as joe@example.com
+    When i am logged in as joe@jrn-limited.com
     And i mark joinAccount request as closed
     Then i should get response with status code 400 and data
     """
     {
-      "message": "Invalid request status change: pending->closed"
+      "message": "Users cannot mark requests as closed."
     }
     """
 
   Scenario: Owner tries to mark cancelled request approved
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
     And i mark joinAccount request as cancelled
-    When i am logged in as joe@example.com
+    When i am logged in as joe@jrn-limited.com
     And i mark joinAccount request as approved
     Then i should get response with status code 400 and data
     """
@@ -215,45 +215,40 @@ Feature: As a user I want to update my requests
 
   Scenario: Owner tries to mark approved request approved again
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
-    When i am logged in as joe@example.com
+    When i am logged in as joe@jrn-limited.com
     And i mark joinAccount request as approved
     And i mark joinAccount request as approved
-    Then i should get response with status code 400 and data
-    """
-    {
-      "message": "Request status already marked as approved."
-    }
-    """
+    Then i should get response with status code 400
 
   Scenario: Owner tries to mark approved request as closed
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
-    When i am logged in as joe@example.com
+    When i am logged in as joe@jrn-limited.com
     And i mark joinAccount request as approved
     And i mark joinAccount request as closed
-    Then i should get response with status code 500 and data
+    Then i should get response with status code 400 and data
     """
     {
-      "message": "Closed, Failed not implemented yet"
+      "message": "Users cannot mark requests as closed."
     }
     """
 
   Scenario: Owner of another account tries to mark a request as approved in another account
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as mark@example.com
+    When i am logged in as mark@jrn-limited.com
     And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
-    When i am logged in as sam@example.com
+    When i am logged in as sam@jrn-limited.com
     And i submit request of type joinAccount for 'Joe Car Hire'
-    When i am logged in as mark@example.com
+    When i am logged in as mark@jrn-limited.com
     And i mark last_submitted request as approved
     Then i should get response with status code 403 and data
     """

@@ -1,12 +1,13 @@
 import logging
 from typing import List
 from flask import request
-from flask_accepts import responds
+from flask_accepts import responds, accepts
 from flask_restplus import Namespace, Resource, abort
 
-from .model import Repo
-from .schema import RepoSchema
-from .. import repoService, accountService
+from .authz.newRepoAuth import NewRepoAuth
+from .model import Repo, NewRepo
+from .schema import RepoSchema, NewRepoSchema
+from .. import repoService, accountService, s3, idp
 from ..account.model import Account
 from ..utils import get_cognito_user
 
@@ -29,20 +30,26 @@ class RepoResource(Resource):
         if account is None:
             abort(404, "User's Account not found")
 
-        return repoService.get_by_accountId(account.accountId)
+        myRepos = repoService.get_by_accountId(account.accountId)
+        idp.hydrateRepos(myRepos)
 
-    # @accepts(schema=NewAppRequestSchema, api=api)
-    # @responds(schema=AppRequestSchema)
-    # def post(self):
-    #     """Submit a request"""
-    #     # Validate with schema
-    #     new_request: NewAppRequest = NewAppRequestSchema().load(api.payload)
-    #     cognito_user = get_cognito_user(request)
-    #
-    #     CommonAuth(new_request, cognito_user).doChecks()
-    #     NewAppRequestAuth(new_request, cognito_user).doChecks()
-    #
-    #     return RequestService.create(cognito_user, new_request)
+        return myRepos
+
+    @accepts(schema=NewRepoSchema, api=api)
+    @responds(schema=RepoSchema)
+    def post(self) -> Repo:
+        """Create a Repo"""
+        # Validate with schema
+        new_repo: NewRepo = NewRepoSchema().load(api.payload)
+        cognito_user = get_cognito_user(request)
+
+        newRepoAuth = NewRepoAuth(new_repo, cognito_user)
+        newRepoAuth.doChecks()
+
+        created_repo = repoService.create(newRepoAuth.myAccount.accountId, new_repo, cognito_user=cognito_user)
+        s3.writeRepoMetaInfo(newRepoAuth.myAccount, created_repo, newRepoAuth.myAccount.bucketName)
+        return created_repo
+
     #
     # @use_args({"status": fields.Str(required=True,
     #                                 location="query",

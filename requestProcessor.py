@@ -1,14 +1,14 @@
 import json
 import logging
 import os
-import time
 from datetime import datetime
 from typing import Optional
 
-from app import AccountService
 from app.database.db import DB
-from app.requests.model import AppRequest, UpdateAppRequest, UpdateHistory
+from app.requests.model import AppRequest, UpdateAppRequest, UpdateHistory, RequestType
 from app.requests.service import RequestService
+from app.repos.service import RepoService
+from app.account.service import AccountService
 from app.config import config_by_name
 
 logger = logging.getLogger(__name__)
@@ -33,13 +33,16 @@ requestService.init(db, 'Requests-{}'.format(env))
 accountService: AccountService = AccountService()
 accountService.init(db, 'Accounts-{}'.format(env))
 
+repoService: RepoService = RepoService()
+repoService.init(db, 'Repos-{}'.format(env))
+
 
 def handler(event, context):
     if 'Records' not in event or len(event['Records']) == 0:
         logger.error('No Records found in event')
         return
 
-    logger.info("Received event: " + json.dumps(event, indent=4, sort_keys=True, default=str))
+    # logger.info("Received event: " + json.dumps(event, indent=4, sort_keys=True, default=str))
 
     ignoredRecords = 0
     successfullyProcessedRecords = 0
@@ -54,8 +57,12 @@ def handler(event, context):
 
         newImage = record['dynamodb']['NewImage']
         status = newImage['status']['S']
+        requestId = newImage['requestId']['S']
+        accountId = newImage['accountId']['S']
+
+        logger.info('Start processing accountId: {}, requestId: {}, status: {}'.format(accountId, requestId, status))
         if status != 'approved':
-            logger.info('Ignoring event since status {} is not approved'.format(status))
+            logger.info('Ignoring since status: {}'.format(status))
             ignoredRecords = ignoredRecords + 1
             continue
 
@@ -64,7 +71,6 @@ def handler(event, context):
             logger.error('Could not fetch request from DB')
             failedToProcessRecords = failedToProcessRecords + 1
             errorsEncountered.append({'record': record, 'error': 'Could not fetch request from DB'})
-            # markRequestStatus(appRequest.requestId, appRequest.accountId, 'failed')
             continue
 
         if appRequest.status != status:
@@ -77,7 +83,11 @@ def handler(event, context):
             markRequestStatus(appRequest.requestId, appRequest.accountId, 'failed')
             continue
 
-        if appRequest.requestType not in ['joinAccount']:
+        if appRequest.requestType not in [
+            RequestType.joinAccount.value,
+            RequestType.joinAsRepoApprover.value, RequestType.leaveAsRepoApprover.value,
+            RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value
+        ]:
             logger.error(
                 'Event processor does not know how to handle requests of type: {}'.format(appRequest.requestType))
             failedToProcessRecords = failedToProcessRecords + 1
@@ -85,16 +95,34 @@ def handler(event, context):
             markRequestStatus(appRequest.requestId, appRequest.accountId, 'failed')
             continue
 
-        # Now based on requestType that got approved, do the needful
-        if appRequest.requestType == 'joinAccount':
-            try:
+        try:
+            # Now based on requestType that got approved, do the needful
+            if appRequest.requestType == RequestType.joinAccount.value:
                 accountService.add_member(appRequest.requestedOnResource, appRequest.requestee)
-                markRequestStatus(appRequest.requestId, appRequest.accountId, 'closed')
-                successfullyProcessedRecords = successfullyProcessedRecords + 1
-            except Exception:
-                markRequestStatus(appRequest.requestId, appRequest.accountId, 'failed')
 
-    logger.info('**** Processed:={}, success={}, failure={}, ignored={}'.format(
+            if appRequest.requestType == RequestType.joinAsRepoApprover.value:
+                repoService.add_approver(appRequest.accountId, appRequest.requestedOnResource, appRequest.requestee)
+
+            if appRequest.requestType == RequestType.leaveAsRepoApprover.value:
+                repoService.remove_approver(appRequest.accountId, appRequest.requestedOnResource, appRequest.requestee)
+
+            if appRequest.requestType == RequestType.grantRepoAccess.value:
+                repoService.add_user(appRequest.accountId, appRequest.requestedOnResource, appRequest.requestee)
+
+            if appRequest.requestType == RequestType.removeRepoAccess.value:
+                repoService.remove_user(appRequest.accountId, appRequest.requestedOnResource, appRequest.requestee)
+
+            # Mark the request as closed since necessary action has been taken
+            logger.info('Successfully actioned request of type: {}'.format(appRequest.requestType))
+            markRequestStatus(appRequest.requestId, appRequest.accountId, 'closed')
+            successfullyProcessedRecords = successfullyProcessedRecords + 1
+
+        except Exception as exception:
+            logger.error(exception)
+            failedToProcessRecords = failedToProcessRecords + 1
+            markRequestStatus(appRequest.requestId, appRequest.accountId, 'failed')
+
+    logger.info('********** Processed:={}, success={}, failure={}, ignored={}'.format(
         len(event['Records']),
         successfullyProcessedRecords,
         failedToProcessRecords,
@@ -121,11 +149,8 @@ def convertRecordToRequestObj(record) -> Optional[AppRequest]:
     requestId = keys['requestId']['S']
     accountId = keys['accountId']['S']
 
-    for i in range(0, 10):
-        appRequest: AppRequest = requestService.get_by_primaryKeys(accountId, requestId)
-        if appRequest is not None:
-            return appRequest
-        logger.info('Waiting for request with accountID: {}, requestID: {}...')
-        time.sleep(0.1)
-    logger.error('Could not fetch request with accountId:{}, requestId:{} from db. It might have been deleted.')
+    appRequest: AppRequest = requestService.get_by_primaryKeys(accountId, requestId)
+    if appRequest is not None:
+        return appRequest
+    logger.error('Could not fetch request with accountId:{}, requestId:{} from db. It might have been deleted.'.format(accountId, requestId))
     return None

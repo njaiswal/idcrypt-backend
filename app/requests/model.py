@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from enum import Enum
 
 
 class AppRequest:
@@ -37,11 +38,11 @@ class AppRequest:
 class NewAppRequest:
     """ New App Request """
 
-    def __init__(self, accountId, requestType, requestedOnResource, requestee=None):
+    def __init__(self, accountId, requestType, requestedOnResource, requesteeEmail=None):
         self.accountId = accountId
         self.requestType = requestType
         self.requestedOnResource = requestedOnResource
-        self.requestee = requestee
+        self.requesteeEmail = requesteeEmail
 
 
 class UpdateAppRequest:
@@ -60,3 +61,17 @@ class UpdateHistory:
         self.updatedBy = updatedBy
         self.updatedByEmail = updatedByEmail
         self.updatedAt = updatedAt
+
+
+class RequestType(Enum):
+    createAccount = 'createAccount'
+    suspendAccount = 'suspendAccount'
+    deleteAccount = 'deleteAccount'
+    joinAccount = 'joinAccount'
+    leaveAccount = 'leaveAccount'
+    joinAsAccountAdmin = 'joinAsAccountAdmin'
+    leaveAsAccountAdmin = 'leaveAsAccountAdmin'
+    joinAsRepoApprover = 'joinAsRepoApprover'
+    leaveAsRepoApprover = 'leaveAsRepoApprover'
+    grantRepoAccess = 'grantRepoAccess'
+    removeRepoAccess = 'removeRepoAccess'

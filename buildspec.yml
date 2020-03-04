@@ -22,17 +22,17 @@ phases:
       - pip install -r requirements.txt
   build:
     commands:
-#      - curl -LO https://s3.eu-central-1.amazonaws.com/dynamodb-local-frankfurt/dynamodb_local_latest.zip
-#      - unzip dynamodb_local_latest.zip
-#      - rm dynamodb_local_latest.zip
-#      - nohup java -Djava.library.path=DynamoDBLocal_lib/ -jar DynamoDBLocal.jar -sharedDb & echo $! > pidfile
       - sls dynamodb install
-      - nohup sls dynamodb start --stage test & echo $! > pidfile
-#      - pytest test/
+      - nohup serverless offline start --stage test &> serverless.out & echo $! > pidfile1 & tail -F serverless.out & echo $! > pidfile2
+      - nohup moto_server s3 -p4500 &> moto.out & echo $! > pidfile3 & tail -F moto.out & echo $! > pidfile4
+      - nohup python requestProcessRunner.py &> requestProcessRunner.out & echo $! > pidfile5 & tail -F requestProcessRunner.out & echo $! > pidfile6
       - behave test-integration/features/
-      - kill $(cat pidfile)
-#      - rm -rf DynamoDBLocal_lib/
-#      - rm DynamoDBLocal.jar
+      - kill $(cat pidfile1)
+      - kill $(cat pidfile2)
+      - kill $(cat pidfile3)
+      - kill $(cat pidfile4)
+      - kill $(cat pidfile5)
+      - kill $(cat pidfile6)
       - mkdir -p target/dev
       - mkdir target/qa
       - serverless package --package target/dev --stage dev -v -r eu-west-1

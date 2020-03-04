@@ -1,8 +1,18 @@
 Feature: As a user I want to use account/ api
 
+  # Dummy scenario to flush out any TrimmedDataAccessException that requestProcessor might get
+  Scenario: User can cancel self request
+    Given backend app is setup
+    And i am logged in as joe@jrn-limited.com
+    And i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
+    When i am logged in as sam@jrn-limited.com
+    And i submit request of type joinAccount for 'Joe Car Hire'
+    When i mark joinAccount request as cancelled
+    Then i should get response with status code 200
+
   Scenario Outline: account/ api called with various payloads
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     When i submit create account request with '<payload>'
     Then i get response with '<status_code>' and '<message>'
 
@@ -17,10 +27,9 @@ Feature: As a user I want to use account/ api
       | { "name": "ABC", "repo": { "name": "REPO",  "desc": "DES",  "retention": 0 }}             | 400         | {"schema_errors": { "repo": { "retention": ["Retention period should be between 1 day and 5 years."]}}} |
       | { "name": "ABC", "repo": { "name": "REPO",  "desc": "DES",  "retention": 1, "xx": "y" }}  | 400         | {"schema_errors": { "repo": { "xx": ["Unknown field."]}}}                                               |
 
-    @dev
   Scenario: user creates new account
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     When i create a new account with payload
       """
       {
@@ -37,14 +46,14 @@ Feature: As a user I want to use account/ api
       {
         "accountId": "***",
         "name": "Joe Car Hire",
-        "owner": "f5b8fb60c6116331da07c65b96a8a1d1",
-        "domain": "example.com",
+        "owner": "joe@jrn-limited.com",
+        "domain": "jrn-limited.com",
         "address": null,
-        "email": "joe@example.com",
+        "email": "joe@jrn-limited.com",
         "status": "active",
         "tier": "free",
         "createdAt": "***",
-        "members": ["f5b8fb60c6116331da07c65b96a8a1d1"],
+        "members": ["joe@jrn-limited.com"],
         "admins": []
       }
       """
@@ -59,10 +68,10 @@ Feature: As a user I want to use account/ api
         "desc": "KYC",
         "retention": 30,
         "approvers": [
-          "f5b8fb60c6116331da07c65b96a8a1d1"
+          "joe@jrn-limited.com"
         ],
         "users": [
-          "f5b8fb60c6116331da07c65b96a8a1d1"
+          "joe@jrn-limited.com"
         ],
         "createdAt": "***"
       }
@@ -77,7 +86,7 @@ Feature: As a user I want to use account/ api
 #  Scenario: user account gets created even when there is a s3 bucket name clash
 #    Given backend app is setup
 #    And s3 bucket namespace for 'Joe_Car_Hire' is exhausted
-#    And i am logged in as joe@example.com
+#    And i am logged in as joe@jrn-limited.com
 #    When i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
 #    Then i should get response with status code 200
 #    And s3 bucket for account 'Joe Car Hire' is available
@@ -85,7 +94,7 @@ Feature: As a user I want to use account/ api
 
   Scenario: user tries to call account/ twice with same name
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     When i create a new account with payload
       """
       {
@@ -117,7 +126,7 @@ Feature: As a user I want to use account/ api
 
   Scenario: user tries to call account/ twice with different name
     Given backend app is setup
-    And i am logged in as joe@example.com
+    And i am logged in as joe@jrn-limited.com
     When i create a new account with payload
       """
       {
@@ -146,3 +155,110 @@ Feature: As a user I want to use account/ api
         "message": "You are already marked as owner of another account."
       }
       """
+
+  Scenario: Non users tries to get account membership
+    Given backend app is setup
+    And i am logged in as joe@jrn-limited.com
+    When i submit create account request with '{ "name": "Joe Main Account", "repo": { "name": "UK KYC",  "desc": "Customer kyc docs",  "retention": 30 }}'
+    Then i should get response with status code 200
+
+    When i am logged in as sam@jrn-limited.com
+    And i get account membership for account name 'Joe Main Account'
+    Then i should get response with status code 403 and data
+      """
+      {
+        "message": "Only members of account allowed to get account membership details."
+      }
+      """
+
+
+  Scenario: Member gets account membership
+    Given backend app is setup
+    And i am logged in as joe@jrn-limited.com
+    When i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "Customer kyc docs",  "retention": 30 }}'
+    Then i should get response with status code 200
+
+    # Add 3 members
+    When i am logged in as sam@jrn-limited.com
+    And i submit request of type joinAccount for 'Joe Car Hire'
+    When i am logged in as joe@jrn-limited.com
+    And i mark last_submitted request as approved
+    And i wait for last_submitted request to get 'closed'
+
+    When i am logged in as kevin@jrn-limited.com
+    And i submit request of type joinAccount for 'Joe Car Hire'
+    When i am logged in as joe@jrn-limited.com
+    And i mark last_submitted request as approved
+    And i wait for last_submitted request to get 'closed'
+
+    When i am logged in as bob@jrn-limited.com
+    And i submit request of type joinAccount for 'Joe Car Hire'
+    When i am logged in as joe@jrn-limited.com
+    And i mark last_submitted request as approved
+    And i wait for last_submitted request to get 'closed'
+
+    # Make sam repo approver
+    When i am logged in as sam@jrn-limited.com
+    And i submit request of type joinAsRepoApprover for account 'Joe Car Hire' and repo 'My Repo 1'
+    Then i should get response with status code 200
+    When i am logged in as joe@jrn-limited.com
+    And i mark last_submitted request as approved
+    And i wait for last_submitted request to get 'closed'
+
+    # Grant sam repo access
+    When i am logged in as sam@jrn-limited.com
+    And i submit request of type grantRepoAccess for account 'Joe Car Hire' and repo 'My Repo 1'
+    Then i should get response with status code 200
+    When i am logged in as joe@jrn-limited.com
+    And i mark last_submitted request as approved
+    And i wait for last_submitted request to get 'closed'
+
+    # Grant kevin repo access
+    When i am logged in as kevin@jrn-limited.com
+    And i submit request of type grantRepoAccess for account 'Joe Car Hire' and repo 'My Repo 1'
+    Then i should get response with status code 200
+    When i am logged in as joe@jrn-limited.com
+    And i mark last_submitted request as approved
+    And i wait for last_submitted request to get 'closed'
+
+    # Now sam get account membership
+    When i get account membership for account name 'Joe Car Hire'
+    Then i should get response with status code 200 and data
+    """
+    [
+      {
+        "email": "joe@jrn-limited.com",
+        "email_verified": "true",
+        "repoAccess": [
+          "My Repo 1"
+        ],
+        "repoApprover": [
+          "My Repo 1"
+        ]
+      },
+      {
+        "email": "sam@jrn-limited.com",
+        "email_verified": "true",
+        "repoAccess": [
+          "My Repo 1"
+        ],
+        "repoApprover": [
+          "My Repo 1"
+        ]
+      },
+      {
+        "email": "kevin@jrn-limited.com",
+        "email_verified": "true",
+        "repoAccess": [
+          "My Repo 1"
+        ],
+        "repoApprover": []
+      },
+      {
+        "email": "bob@jrn-limited.com",
+        "email_verified": "true",
+        "repoAccess": [],
+        "repoApprover": []
+      }
+    ]
+    """

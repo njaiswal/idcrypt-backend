@@ -85,18 +85,25 @@ class RequestService:
         return found_app_requests
 
     def create(self, cognito_user: CognitoUser, new_request: NewAppRequest) -> AppRequest:
+        from app import repoService
         from app import accountService
+        from app import idp
         self.logger.debug('create called')
 
+        requesteeSub = None
+        if new_request.requesteeEmail is not None:
+            requesteeSub = idp.convert_email_to_sub(new_request.requesteeEmail)
+
         request_attr: dict = {'accountId': new_request.accountId,
-                              'requestee': new_request.requestee if new_request.requestee is not None else cognito_user.sub,
+                              'requestee': requesteeSub if new_request.requesteeEmail is not None else cognito_user.sub,
                               'requestor': cognito_user.sub,
-                              'requesteeEmail': 'todo' if new_request.requestee is not None else cognito_user.email,
+                              'requesteeEmail': new_request.requesteeEmail if new_request.requesteeEmail is not None else cognito_user.email,
                               'requestorEmail': cognito_user.email,
                               'requestedOnResource': new_request.requestedOnResource,
                               'requestType': new_request.requestType
                               }
         accountService.hydrate_request(request_attr)
+        repoService.hydrate_request(request_attr)
         # CognitoService.hydrate_request(request_attr)
 
         newAppRequest = AppRequest(**request_attr)

@@ -2,7 +2,6 @@ import json
 import logging
 import os
 
-# import awsgi
 from flask import request
 
 import app as idcrypt_app
@@ -60,9 +59,3 @@ def after(response):
     except Exception as e:
         logger.error('Could not log response due to exception: {}'.format(e))
     return response
-
-# def handler(event, context):
-#     logger.debug('request: {}'.format(json.dumps(event, indent=4, sort_keys=True)))
-#     response = awsgi.response(app, event, context, base64_content_types={"image/png"})
-#     logger.debug(json.dumps(response, indent=4, sort_keys=4))
-#     return response

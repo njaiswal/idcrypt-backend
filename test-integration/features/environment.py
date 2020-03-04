@@ -10,8 +10,9 @@ logger = logging.getLogger(__name__)
 
 
 def before_feature(context, feature):
-    wait_for_port(port=8000, host='localhost', timeout=60.0)
+    wait_for_port(port=8000, host='localhost', timeout=60.0)  # Dynamodb server
     wait_for_table_to_exist('Accounts-test')
+    wait_for_port(port=4500, host='localhost', timeout=60.0)  # moto s3 server
 
     app.testing = True
     context.client = app.test_client()
@@ -76,8 +77,7 @@ def before_scenario(context, scenario):
     )
 
 
-
-def wait_for_port(port, host='localhost', timeout=5.0):
+def wait_for_port(port, host='localhost', timeout=60.0):
     """Wait until a port starts accepting TCP connections.
     Args:
         port (int): Port number.

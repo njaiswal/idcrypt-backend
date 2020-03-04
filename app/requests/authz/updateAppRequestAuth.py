@@ -33,16 +33,14 @@ class UpdateAppRequestAuth:
         #       pending -> cancelled
         #               -> denied
         #               -> approved
-        #                           -> closed
-        #                           -> failed
-
-        if self.requestInDb.status == self.new_status:
-            abort(400, message='Request status already marked as {}.'.format(self.new_status))
-
+        #                           -> closed   (out of band change via requestProcessor)
+        #                           -> failed   (out of band change via requestProcessor)
         if self.requestInDb.status == 'pending' and self.new_status in ['cancelled', 'denied', 'approved']:
             pass
-        elif self.requestInDb.status == 'approved' and self.new_status in ['closed', 'failed']:
-            pass
+        elif self.new_status in ['closed', 'failed']:
+            abort(400, message='Users cannot mark requests as {}.'.format(self.new_status))
+        elif self.requestInDb.status == self.new_status:
+            abort(400, message='Request status already marked as {}.'.format(self.new_status))
         else:
             abort(400, message='Invalid request status change: {}->{}'.format(self.requestInDb.status, self.new_status))
 
@@ -65,7 +63,7 @@ class UpdateAppRequestAuth:
 
         if self.new_status in ['approved', 'denied']:
             if self.user.sub != account.owner:
-                #or self.user.sub in account.admins todo
+                # or self.user.sub in account.admins todo
                 abort(403, message='Not Authorized.')
 
         # todo: add who can approve deny documentAccess request

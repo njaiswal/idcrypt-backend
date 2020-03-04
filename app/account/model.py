@@ -30,3 +30,19 @@ class NewAccount(object):
     def __init__(self, name, repo: NewRepo):
         self.name = name
         self.repo: NewRepo = repo
+
+
+class AccountMember(object):
+    """Account Member"""
+
+    def __init__(self, email: str, email_verified: bool):
+        self.email = email
+        self.email_verified = email_verified
+        self.repoAccess = []
+        self.repoApprover = []
+
+    def addRepoAccess(self, repoName):
+        self.repoAccess.append(repoName)
+
+    def addRepoApprover(self, repoName):
+        self.repoApprover.append(repoName)

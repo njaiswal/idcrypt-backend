@@ -22,6 +22,12 @@ class RepoService:
         self.table_name = table_name
         self.table = db.dynamodb_resource.Table(self.table_name)
 
+    def hydrate_request(self, request_attr: dict):
+        if 'requestedOnResource' in request_attr:
+            repo: Repo = self.get_by_id(request_attr['accountId'], request_attr['requestedOnResource'])
+            if repo is not None:
+                request_attr['requestedOnResourceName'] = repo.name
+
     def get_by_id(self, accountId: str, repoId: str) -> Optional[Repo]:
         self.logger.info('RepoService get_by_id called')
         resp = self.table.get_item(
@@ -130,3 +136,91 @@ class RepoService:
             found_repos.append(Repo(**item))
 
         return found_repos
+
+    def add_user(self, accountId: str, repoId: str, newUser: str) -> None:
+
+        repo: Repo = self.get_by_id(accountId, repoId)
+        if newUser in repo.users:
+            self.logger.error('{} is already a approver on repoName: {}. Ignoring...'.format(newUser, repo.name))
+            return
+
+        resp = self.table.update_item(
+            Key={
+                'accountId': accountId,
+                'repoId': repoId
+            },
+            UpdateExpression='set #u = list_append(if_not_exists(#u, :empty_list), :h)',
+            ExpressionAttributeValues={
+                ':h': [newUser],
+                ':empty_list': []
+            },
+            ExpressionAttributeNames={'#u': 'users'},  # users is reserved Dynamodb keyword
+            ReturnValues='NONE'
+        )
+        assert_dynamodb_response(resp)
+
+    def add_approver(self, accountId: str, repoId: str, newApprover: str) -> None:
+
+        repo: Repo = self.get_by_id(accountId, repoId)
+        if newApprover in repo.approvers:
+            self.logger.error('{} is already a approver on repoName: {}. Ignoring...'.format(newApprover, repo.name))
+            return
+
+        resp = self.table.update_item(
+            Key={
+                'accountId': accountId,
+                'repoId': repoId
+            },
+            UpdateExpression='set approvers = list_append(if_not_exists(approvers, :empty_list), :h)',
+            ExpressionAttributeValues={
+                ':h': [newApprover],
+                ':empty_list': []
+            },
+            ReturnValues='NONE',
+        )
+        assert_dynamodb_response(resp)
+
+    def remove_approver(self, accountId: str, repoId: str, approver: str) -> None:
+        repo: Repo = self.get_by_id(accountId, repoId)
+
+        if approver not in repo.approvers:
+            self.logger.error('{} is already NOT a approver on repoName: {}. Ignoring...'.format(approver, repo.name))
+            return
+
+        repo.approvers.remove(approver)
+
+        resp = self.table.update_item(
+            Key={
+                'accountId': accountId,
+                'repoId': repoId
+            },
+            UpdateExpression='set approvers = :h',
+            ExpressionAttributeValues={
+                ':h': repo.approvers
+            },
+            ReturnValues='NONE',
+        )
+        assert_dynamodb_response(resp)
+
+    def remove_user(self, accountId: str, repoId: str, user: str) -> None:
+        repo: Repo = self.get_by_id(accountId, repoId)
+
+        if user not in repo.users:
+            self.logger.error('{} is already NOT a user on repoName: {}. Ignoring...'.format(user, repo.name))
+            return
+
+        repo.users.remove(user)
+
+        resp = self.table.update_item(
+            Key={
+                'accountId': accountId,
+                'repoId': repoId
+            },
+            UpdateExpression='set #u = :h',
+            ExpressionAttributeValues={
+                ':h': repo.users
+            },
+            ExpressionAttributeNames={'#u': 'users'},  # users is reserved Dynamodb keyword
+            ReturnValues='NONE',
+        )
+        assert_dynamodb_response(resp)

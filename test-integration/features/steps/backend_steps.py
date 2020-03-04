@@ -27,7 +27,7 @@ def login(context, user):
     context.auth_header = get_fake_auth_headers(user)
 
 
-@when(u'i GET "{uri}"')
+@step(u'i GET "{uri}"')
 def get(context, uri):
     url = '{}{}'.format(base_url, uri)
 
@@ -36,9 +36,24 @@ def get(context, uri):
     context.response = response
 
 
-# @when(u'i create a new account without a name')
-# def create_new_account_without_name(context):
-#     create_new_account(context, json_text_payload=None)
+@step(u"i submit create repo request with '{payload}'")
+def submit_create_repo(context, payload):
+    context.text = payload
+    create_new_repo(context)
+
+
+@step(u'i create a new repo with payload')
+def create_new_repo(context):
+    url = '{}{}'.format(base_url, '/repos/')
+    payload: dict = json.loads(context.text)
+
+    response = context.client.post(url, environ_base={'API_GATEWAY_AUTHORIZER': context.auth_header}, json=payload)
+    assert response
+
+    assert response.headers.get('Access-Control-Allow-Origin') == 'http://localhost:4200'
+    assert response.headers.get('Access-Control-Allow-Credentials') == 'true'
+    context.response = response
+
 
 @step(u"i submit create account request with '{payload}'")
 def submit_create_account(context, payload):
@@ -73,16 +88,47 @@ def update_account_with_queryParam(context, accountName, queryParam):
     context.response = response
 
 
+@step('i get account membership for account name \'{accountName}\'')
+def membership_request(context, accountName):
+    accountId = get_account_by_name(accountName)['accountId']
+    get(context, '/account/{}/members'.format(accountId))
+
+
 @step('i submit request of type {action} for \'{accountName}\'')
 def app_request(context, action, accountName):
     assert_that(action, is_in(['joinAccount', 'leaveAccount', 'makeMeGod']))
     accountId = get_account_by_name(accountName)['accountId']
-    app_request_accountId(context, action, accountId, accountId)
+    app_request_params(context, action, accountId, accountId)
+
+
+@step('i submit request of type {action} for account \'{accountName}\' and repo \'{repoName}\'')
+def repo_request(context, action, accountName, repoName):
+    assert_that(action, is_in(['joinAsRepoApprover', 'leaveAsRepoApprover',
+                               'grantRepoAccess', 'removeRepoAccess',
+                               'makeMeGod']))
+    accountId = get_account_by_name(accountName)['accountId']
+    repoId = get_repo_by_name(accountId, repoName)['repoId']
+    app_request_params(context, action, accountId, repoId)
 
 
 @step(
-    'i submit request of requestType: \'{type}\', accountId: \'{accountId}\', requestedOnResource: \'{requestedOnResource}\'')
-def app_request_accountId(context, type, accountId, requestedOnResource):
+    u"i submit request on behalf of '{requestee}' of type {requestType} for accountName '{accountName}' and repoName '{repoName}'")
+def onBehalfOf_repo_request(context, requestee, requestType, accountName, repoName):
+    assert_that(requestType, is_in(['joinAsRepoApprover', 'leaveAsRepoApprover',
+                                    'grantRepoAccess', 'removeRepoAccess',
+                                    'makeMeGod']))
+    accountId = get_account_by_name(accountName)['accountId']
+    repoId = get_repo_by_name(accountId, repoName)['repoId']
+    app_request_params_with_requestee(context, requestType, accountId, repoId, requesteeEmail=requestee)
+
+
+@step(
+    'i submit request of requestType: \'{requestType}\', accountId: \'{accountId}\', requestedOnResource: \'{requestedOnResource}\'')
+def app_request_params(context, requestType, accountId, requestedOnResource):
+    app_request_params_with_requestee(context, requestType, accountId, requestedOnResource)
+
+
+def app_request_params_with_requestee(context, requestType, accountId, requestedOnResource, requesteeEmail=None):
     url = '{}{}'.format(base_url, '/requests/')
 
     effective_account_id = accountId
@@ -91,9 +137,13 @@ def app_request_accountId(context, type, accountId, requestedOnResource):
         effective_account_id = json.loads(last_json_response)['accountId']
 
     payload = dict(accountId=effective_account_id,
-                   requestType=type,
+                   requestType=requestType,
                    requestedOnResource=requestedOnResource)
 
+    if requesteeEmail is not None:
+        payload['requesteeEmail'] = requesteeEmail
+
+    logger.info('Url: {} , Payload: {} '.format(url, payload))
     response = context.client.post(url, environ_base={'API_GATEWAY_AUTHORIZER': context.auth_header}, json=payload)
     assert response
     context.response = response
@@ -263,12 +313,31 @@ def exhaust_s3_namespace(context, bucketNameSpace):
 
 
 def get_fake_auth_headers(email: str):
+    sub = None
+    if email == 'jrn@jrn-limited.com':
+        sub = '01993b92-2900-48f0-a056-85688aaef3be'
+    if email == 'rashi@jrn-limited.com':
+        sub = 'af481bdf-d195-41ee-a297-1ed645624a1b'
+    if email == 'nishant@jrn-limited.com':
+        sub = 'e7ba07ac-caaa-4bb9-89a5-4d8c8b008421'
+    if email == 'joe@jrn-limited.com':
+        sub = '30accff5-916d-47d7-bdbb-a3d7dc95feec'
+    if email == 'sam@jrn-limited.com':
+        sub = '86c8644c-d74e-495b-afe9-7eaff234bea9'
+    if email == 'kevin@jrn-limited.com':
+        sub = '85ee1019-9c53-4da4-a749-b9714f301155'
+    if email == 'bob@jrn-limited.com':
+        sub = 'a9c71a15-60ab-4e13-9ed9-521b377ed741'
+
+    if sub is None:
+        sub = hashlib.md5(email.encode()).hexdigest()
+
     return {
         'claims': {
             'cognito:username': email.split('@')[0],
             'email': email,
             'email_verified': 'true',
-            'sub': hashlib.md5(email.encode()).hexdigest()
+            'sub': sub
         }
     }
 
@@ -290,5 +359,27 @@ def get_account_by_name(accountName, retry=False):
         return get_account_by_name(accountName, retry=True)
 
     assert_that(len(resp['Items']), is_not(0), reason="Get account by name failed")
+
+    return resp['Items'][0]
+
+
+def get_repo_by_name(accountId, repoName, retry=False):
+    table = db.dynamodb_resource.Table('Repos-test')
+
+    resp = table.query(
+        IndexName='AccountIdAndRepoNameIndex',
+        KeyConditionExpression=Key('accountId').eq(accountId) & Key('name').eq(repoName),
+        Select='ALL_PROJECTED_ATTRIBUTES'
+    )
+
+    assert_dynamodb_response(resp, expected_attribute='Items')
+
+    # If we do not find the account give it another try
+    if resp['Count'] == 0 and not retry:
+        logger.info('Did not find repo with name {}. Going to retry after 1 sec'.format(repoName))
+        time.sleep(1)
+        return get_repo_by_name(accountId, repoName, retry=True)
+
+    assert_that(len(resp['Items']), is_not(0), reason="Get repo by name failed")
 
     return resp['Items'][0]
