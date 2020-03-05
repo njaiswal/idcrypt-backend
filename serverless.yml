@@ -3,6 +3,7 @@ service: idcrypt-backend
 # Also for time being creating certs same as domain name, if in future wildcard cert needs to be used we need to add
 # 'certificateName' under 'customDomain' section below.
 # Only dev.api.idcrypt.io has been added, for qa, uat, prod :
+#      test.api.idcrypt.io is also created
 
 #  Go to 'Route53'
 #  - First create a new hosted zone ENV.api.idcrypt.io of Type: Public Hosted Zone
@@ -49,17 +50,22 @@ custom:
       migrate: true
       seed: true
       convertEmptyValues: true
-  cognito:
+  arns:
     test:
       userPoolArn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+      s3Arn: arn:aws:s3:::*
     dev:
       userPoolArn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+      s3Arn: arn:aws:s3:::*
     qa:
       userPoolArn: xxx
+      s3Arn: arn:aws:s3:::*
     uat:
       userPoolArn: xxx
+      s3Arn: arn:aws:s3:::*
     prod:
       userPoolArn: xxx
+      s3Arn: arn:aws:s3:::*
 
 
 
@@ -104,7 +110,19 @@ provider:
     - Effect: Allow
       Action:
         - cognito-idp:ListUsers
-      Resource: ${self:custom.cognito.${self:provider.stage}.userPoolArn}
+      Resource:
+        - ${self:custom.arns.${self:provider.stage}.userPoolArn}
+    - Effect: Allow
+      Action:
+        - s3:CreateBucket
+        - s3:PutBucketLogging
+        - s3:PutBucketTagging
+        - s3:PutEncryptionConfiguration
+        - s3:PutLifecycleConfiguration
+        - s3:PutObject
+      Resource:
+        - ${self:custom.arns.${self:provider.stage}.s3Arn}
+
 
   environment:
     STAGE: ${opt:stage}
@@ -121,13 +139,13 @@ functions:
           cors: true
           authorizer:
             name: authorizer
-            arn: ${self:custom.cognito.${self:provider.stage}.userPoolArn}
+            arn: ${self:custom.arns.${self:provider.stage}.userPoolArn}
       - http:
           path: /{proxy+}
           method: ANY
           authorizer:
             name: authorizer
-            arn: ${self:custom.cognito.${self:provider.stage}.userPoolArn}
+            arn: ${self:custom.arns.${self:provider.stage}.userPoolArn}
           cors: true
   idcryptEventProcessor:
     environment:
