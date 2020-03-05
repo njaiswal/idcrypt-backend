@@ -32,7 +32,6 @@ class IDP:
                                    )
         self.userPoolId = app.config.get('COGNITO_USERPOOL_ID')
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
 
     def hydrateRepos(self, repos: List[Repo]):
         for repo in repos:

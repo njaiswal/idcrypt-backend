@@ -35,7 +35,7 @@ Feature: As a user I want to use account/ api
       {
         "name": "Joe Car Hire",
         "repo": {
-          "name": "Docs",
+          "name": "KYC Docs",
           "desc": "KYC",
           "retention": 30
         }
@@ -64,7 +64,7 @@ Feature: As a user I want to use account/ api
       {
         "repoId": "***",
         "accountId": "***",
-        "name": "Docs",
+        "name": "KYC Docs",
         "desc": "KYC",
         "retention": 30,
         "approvers": [
@@ -78,7 +78,7 @@ Feature: As a user I want to use account/ api
     ]
     """
     And s3 bucket for account 'Joe Car Hire' is available
-    And repo meta info file 'Docs/metaInfo.txt' is available for account 'Joe Car Hire'
+    And repo meta info file 'kyc-docs/metaInfo.txt' is available for account 'Joe Car Hire'
 
   # Following test is commented out since it takes a very long time to run and will test functionality only half the times
   # We need a better way of mocking method responses when tests are running

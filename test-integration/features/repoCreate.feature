@@ -94,8 +94,8 @@ Feature: User creates new repo
     ]
     """
     And s3 bucket for account 'Joe Car Hire' is available
-    And repo meta info file 'My-Repo-1/metaInfo.txt' is available for account 'Joe Car Hire'
-    And repo meta info file 'My-Repo-2/metaInfo.txt' is available for account 'Joe Car Hire'
+    And repo meta info file 'my-repo-1/metaInfo.txt' is available for account 'Joe Car Hire'
+    And repo meta info file 'my-repo-2/metaInfo.txt' is available for account 'Joe Car Hire'
 
 
   Scenario: Owner tries to create repo with same name

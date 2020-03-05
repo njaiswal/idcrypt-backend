@@ -9,16 +9,16 @@ from ..database.db import assert_dynamodb_response
 
 
 class RequestService:
-    logger = logging.getLogger(__name__)
-
     db = None
     table_name = None
     table = None
+    logger = None
 
     def init(self, db: DB, table_name):
         self.db = db
         self.table_name = table_name
         self.table = db.dynamodb_resource.Table(self.table_name)
+        self.logger = logging.getLogger(__name__)
 
     def get_by_accountId(self, accountId: str, status: str = None):
         """ Returns all requests for a accountID of a particular status if status is present

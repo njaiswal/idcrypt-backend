@@ -11,16 +11,16 @@ from ..database.db import assert_dynamodb_response
 
 
 class RepoService:
-    logger = logging.getLogger(__name__)
-
     db = None
     table_name = None
     table = None
+    logger = None
 
     def init(self, db: DB, table_name):
         self.db = db
         self.table_name = table_name
         self.table = db.dynamodb_resource.Table(self.table_name)
+        self.logger = logging.getLogger(__name__)
 
     def hydrate_request(self, request_attr: dict):
         if 'requestedOnResource' in request_attr:

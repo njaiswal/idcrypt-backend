@@ -10,7 +10,7 @@ from logging.config import dictConfig
 dictConfig({
     'version': 1,
     'formatters': {'default': {
-        'format': '%(asctime)s,%(msecs)d %(levelname)-8s [%(name)s:%(lineno)d] %(message)s',
+        'format': '%(asctime)s,%(msecs)d %(levelname)-8s [%(name)s:%(funcName)s:%(lineno)d] %(message)s',
     }},
     'handlers': {'wsgi': {
         'class': 'logging.StreamHandler',

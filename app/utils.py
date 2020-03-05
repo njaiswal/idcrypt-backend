@@ -1,10 +1,5 @@
-import json
-
 from flask_restplus import abort
 import logging
-import pprint
-
-
 from app.cognito.cognitoUser import CognitoUser
 
 logger = logging.getLogger(__name__)

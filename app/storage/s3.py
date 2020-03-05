@@ -6,7 +6,6 @@ import boto3
 import botocore
 from boto3 import s3
 from botocore.client import BaseClient
-
 from flask import Flask
 from app.account.model import Account
 from app.appException import AppException
@@ -14,19 +13,15 @@ from app.repos.model import Repo
 import logging
 from random import randint
 
-logger = logging.getLogger(__name__)
-
 
 class S3:
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-
     client: botocore.client = None
     s3_resource: s3 = None
     s3_endpoint: str = None
     region: str = None
     env: str = None
     loggingBucketName = None
+    logger = None
 
     def init(self, app: Flask):
         self.s3_endpoint = app.config.get('S3_ENDPOINT_URL')
@@ -41,6 +36,7 @@ class S3:
                                           endpoint_url=self.s3_endpoint
                                           )
         self.loggingBucketName = app.config.get('LOGGING_BUCKET_NAME')
+        self.logger = logging.getLogger(__name__)
 
     def attemptBucketCreate(self, bucketName) -> str:
         """ Attempts 10 times to create bucket with name=bucketName-xxx where xxxx is random between 1000-9999
@@ -59,10 +55,10 @@ class S3:
                 )
             except Exception as exception:
                 if 'BucketAlreadyExists' in str(exception):
-                    logger.error('Seems like bucket name: {} is already taken'.format(bucketName))
+                    self.logger.error('Seems like bucket name: {} is already taken'.format(bucketName))
                     continue
                 else:
-                    logger.error('Exception while creating bucket with name: {}'.format(bucketName))
+                    self.logger.error('Exception while creating bucket with name: {}'.format(bucketName))
                     raise exception
             return suffixedBucketName
 
@@ -80,7 +76,7 @@ class S3:
 
         # Update bucket logging
         self.logger.info('Going to update S3 bucket: {} logging with target bucket: {}'.format(createdBucketName,
-                                                                                               self.loggingBucketName))
+                                                                                           self.loggingBucketName))
         self.client.put_bucket_logging(
             Bucket=createdBucketName,
             BucketLoggingStatus={
@@ -188,4 +184,5 @@ class S3:
 
         name = name.strip()  # Remove leading and trailing spaces if any
         name = name.replace(' ', '-')  # Replace all spaces with hyphen
+        name = name.lower()
         return name

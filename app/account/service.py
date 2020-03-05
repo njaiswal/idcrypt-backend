@@ -17,12 +17,13 @@ class AccountService:
     db = None
     table_name = None
     table = None
-    logger = logging.getLogger(__name__)
+    logger = None
 
     def init(self, db: DB, table_name):
         self.db = db
         self.table_name = table_name
         self.table = db.dynamodb_resource.Table(self.table_name)
+        self.logger = logging.getLogger(__name__)
 
     def hydrate_request(self, request_attr: dict):
         if 'accountId' in request_attr:
@@ -42,6 +43,10 @@ class AccountService:
         # we want to avoid this approach.
         domain = user.email.split('@')[1]
         sameDomainAccounts: List[Account] = accountsService.get_by_domain(domain)
+        self.logger.info('Found {} accounts with same domain name for user: {}'.format(
+            len(sameDomainAccounts),
+            user.email)
+        )
 
         if len(sameDomainAccounts) == 0:
             return None
@@ -104,7 +109,8 @@ class AccountService:
             ExpressionAttributeNames={'#key': key}  # status is reserved Dynamodb keyword hence we have to pass ref #
         )
 
-        self.logger.info('Account update for accountId={} returned update_response: {}'.format(accountId, json.dumps(resp)))
+        self.logger.info(
+            'Account update for accountId={} returned update_response: {}'.format(accountId, json.dumps(resp)))
 
     def owner_account_exists(self, owner: str) -> bool:
         resp = self.table.query(
