@@ -94,8 +94,8 @@ Feature: User creates new repo
     ]
     """
     And s3 bucket for account 'Joe Car Hire' is available
-    And repo meta info file 'My_Repo_1/metaInfo.txt' is available for account 'Joe Car Hire'
-    And repo meta info file 'My_Repo_2/metaInfo.txt' is available for account 'Joe Car Hire'
+    And repo meta info file 'My-Repo-1/metaInfo.txt' is available for account 'Joe Car Hire'
+    And repo meta info file 'My-Repo-2/metaInfo.txt' is available for account 'Joe Car Hire'
 
 
   Scenario: Owner tries to create repo with same name
@@ -110,3 +110,16 @@ Feature: User creates new repo
       "message": "Repository with name 'My Repo 1' already exists."
     }
     """
+
+  Scenario: Owner can creates new repo, test rollback
+    Given backend app is setup
+    And i am logged in as joe@jrn-limited.com
+    And s3 logging bucket is missing
+    When i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
+    Then i should get response with status code 500 and data
+    """
+    {
+      "message": "New account creation failed. Please try again."
+    }
+    """
+    And account with name 'Joe Car Hire' is not present

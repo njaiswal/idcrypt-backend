@@ -1,5 +1,21 @@
 Feature: As a user I want to use accounts/ api
 
+  Scenario: Options request contains correct CORS headers
+    Given backend app is setup
+    And i am logged in as joe@jrn-limited
+    And i OPTIONS "/accounts/"
+    Then i should get response with status code 200 and headers
+    """
+    {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Origin": "http://localhost:4200",
+        "Allow": "GET, OPTIONS, HEAD",
+        "Content-Length": "0",
+        "Content-Type": "text/html; charset=utf-8",
+        "Vary": "Origin"
+    }
+    """
+
   Scenario: New user with new unknown domain calls accounts/
     Given backend app is setup
     And i am logged in as joe@jrn-limited.com

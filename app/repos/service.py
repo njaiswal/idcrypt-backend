@@ -90,6 +90,25 @@ class RepoService:
         else:
             return True
 
+    def delete(self, repo: Repo) -> None:
+        try:
+            self.logger.debug(
+                'RepoService delete called for accountId: {}, repoId: {}, repoName: {}'.format(
+                    repo.accountId,
+                    repo.repoId, repo.name)
+            )
+
+            resp = self.table.delete_item(
+                Key={
+                    'accountId': repo.accountId,
+                    'repoId': repo.repoId
+                }
+            )
+
+            assert_dynamodb_response(resp)
+        except Exception as exception:
+            self.logger.error('Exception during rollback: {}'.format(exception))
+
     def create(self, accountId: str, new_repo: NewRepo, cognito_user: CognitoUser = None) -> Repo:
 
         self.logger.debug('RepoService create called')

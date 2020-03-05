@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class S3:
     logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
 
     client: botocore.client = None
     s3_resource: s3 = None
@@ -61,14 +62,14 @@ class S3:
                     logger.error('Seems like bucket name: {} is already taken'.format(bucketName))
                     continue
                 else:
+                    logger.error('Exception while creating bucket with name: {}'.format(bucketName))
                     raise exception
             return suffixedBucketName
 
         raise AppException('Could not create bucket for account name: {}'.format(bucketName))
 
     def createRepoBucket(self, account: Account, repo: Repo) -> str:
-        bucketName = account.name.replace(' ', '_')
-        repoFolderName = repo.name.replace(' ', '_')
+        bucketName = self.craftBucketNameFrom(account.name)
 
         # Create bucket
         self.logger.info('Going to create S3 bucket with name: {}'.format(bucketName))
@@ -165,7 +166,26 @@ class S3:
                     'Repo Name: {} '.format(repo.name)
                 ]
                 tmp.writelines(metaInfo)
-            repoFolderName = repo.name.replace(' ', '_')
+            repoFolderName = self.craftBucketNameFrom(repo.name)
             self.client.upload_file(path, bucketName, '{}/metaInfo.txt'.format(repoFolderName))
         finally:
             os.remove(path)
+
+    def craftBucketNameFrom(self, name: str) -> str:
+        # Bucket name should conform with DNS requirements:
+        #     - Should not contain uppercase characters
+        #     - Should not contain underscores (_)
+        #     - Should be between 3 and 63 characters long
+        #     - Should not end with a dash
+        #     - Cannot contain two, adjacent periods
+        #     - Cannot contain dashes next to periods (e.g., "my-.bucket.com" and "my.-bucket" are invalid)
+
+        # Since we already schema check account name and repo name with schema like
+        # name = fields.String(attribute="name", required=True, validate=[
+        #     validate.Length(min=3, max=30),
+        #     validate.Regexp(r"^[a-zA-Z0-9 ]*$", error="Account name must not contain special characters.")
+        # ])
+
+        name = name.strip()  # Remove leading and trailing spaces if any
+        name = name.replace(' ', '-')  # Replace all spaces with hyphen
+        return name

@@ -8,7 +8,7 @@ from boto3.dynamodb.conditions import Key
 from deepdiff import DeepDiff
 from flask import Response
 from hamcrest import *
-from app import db, s3, requestService
+from app import db, s3, requestService, accountService
 from app.database.db import assert_dynamodb_response
 
 base_url = '/api/v1.0'
@@ -25,6 +25,15 @@ def flask_setup(context):
 @step(u'i am logged in as {user}')
 def login(context, user):
     context.auth_header = get_fake_auth_headers(user)
+
+
+@step(u'i OPTIONS "{uri}"')
+def options(context, uri):
+    url = '{}{}'.format(base_url, uri)
+
+    response = context.client.options(url, environ_base={'API_GATEWAY_AUTHORIZER': context.auth_header})
+    assert response
+    context.response = response
 
 
 @step(u'i GET "{uri}"')
@@ -237,6 +246,22 @@ def verify_response_and_status_code(context, status_code, response):
     response_status_code(context, int(status_code))
 
 
+@then(u'i should get response with status code {code:d} and headers')
+def response_status_code_and_headers(context, code):
+    response: Response = context.response
+    assert_that(response.status_code, equal_to(code))
+
+    header_dict = dict()
+    for header in response.headers.to_wsgi_list():
+        header_dict[header[0]] = header[1]
+
+    expected_json: dict = json.loads(context.text)
+    logger.info('OPTIONS returned headers: {}'.format(json.dumps(header_dict, indent=4, sort_keys=True)))
+    ddiff = DeepDiff(header_dict, expected_json, ignore_order=True, exclude_paths="root['Allow']")
+    pprint.pprint(ddiff, indent=4)
+    assert not ddiff
+
+
 @then(u'i should get response with status code {code:d} and data')
 def response_status_code(context, code):
     response: Response = context.response
@@ -285,6 +310,22 @@ def verify_s3_repo_metaInfo(context, pathToMetaInfoFile, accountName):
         objectKeysInBucket.append(obj.key)
 
     assert pathToMetaInfoFile in objectKeysInBucket
+
+
+@step(u"account with name '{accountName}' is not present")
+def account_not_present(context, accountName):
+    assert not accountService.account_by_name_exists(accountName)
+
+
+@step(u"s3 logging bucket is missing")
+def delete_s3_logging_bucket(context):
+    # delete all objects in logging bucket
+    bucketResource = s3.s3_resource.Bucket('idcrypt-s3-access-logs')
+    bucketResource.objects.all().delete()
+    bucketResource.delete()
+
+    waiter = s3.client.get_waiter('bucket_not_exists')
+    waiter.wait(Bucket='idcrypt-s3-access-logs')
 
 
 @step(u"s3 bucket for account '{accountName}' is available")

@@ -12,13 +12,12 @@ from ..database.db import DB
 from ..cognito.cognitoUser import CognitoUser
 from ..database.db import assert_dynamodb_response
 
-logger = logging.getLogger(__name__)
-
 
 class AccountService:
     db = None
     table_name = None
     table = None
+    logger = logging.getLogger(__name__)
 
     def init(self, db: DB, table_name):
         self.db = db
@@ -56,13 +55,13 @@ class AccountService:
             return None
 
         if len(accountIdForUser) > 1:
-            logger.error('User found to be member of more than one account: {}'.format(accountIdForUser))
+            self.logger.error('User found to be member of more than one account: {}'.format(accountIdForUser))
             abort(500, 'Internal Server Error. Please contact support.')
 
         return self.get_by_id(accountIdForUser[0])
 
     def get_by_id(self, accountId: str) -> Optional[Account]:
-        logger.info('AccountService get_by_id called')
+        self.logger.info('AccountService get_by_id called')
         resp = self.table.get_item(
             Key={
                 PARTITION_KEY: accountId
@@ -72,10 +71,10 @@ class AccountService:
         assert_dynamodb_response(resp)
 
         if 'Item' in resp:
-            logger.info('get_by_id: {} returned a Item'.format(accountId))
+            self.logger.info('get_by_id: {} returned a Item'.format(accountId))
             return Account(**resp['Item'])
         else:
-            logger.error('get_by_id: {} not found'.format(accountId))
+            self.logger.error('get_by_id: {} not found'.format(accountId))
             return None
 
     def add_member(self, accountId: str, newMember: str) -> None:
@@ -93,7 +92,7 @@ class AccountService:
         assert_dynamodb_response(resp)
 
     def update(self, accountId: str, key: str, value: str) -> None:
-        logger.info('AccountService update called')
+        self.logger.info('AccountService update called')
 
         resp = self.table.update_item(
             Key={
@@ -105,7 +104,7 @@ class AccountService:
             ExpressionAttributeNames={'#key': key}  # status is reserved Dynamodb keyword hence we have to pass ref #
         )
 
-        logger.info('Account update for accountId={} returned update_response: {}'.format(accountId, json.dumps(resp)))
+        self.logger.info('Account update for accountId={} returned update_response: {}'.format(accountId, json.dumps(resp)))
 
     def owner_account_exists(self, owner: str) -> bool:
         resp = self.table.query(
@@ -136,7 +135,7 @@ class AccountService:
 
     def create(self, new_account: NewAccount, cognito_user: CognitoUser = None) -> Optional[Account]:
 
-        logger.debug('AccountService create called')
+        self.logger.debug('AccountService create called')
 
         new_attrs: dict = {'name': new_account.name,
                            'owner': cognito_user.sub,
@@ -156,7 +155,7 @@ class AccountService:
         put_response = self.table.put_item(
             Item=new_account_dict
         )
-        logger.debug('put_response: {}'.format(json.dumps(put_response, indent=4, sort_keys=True)))
+        self.logger.debug('put_response: {}'.format(json.dumps(put_response, indent=4, sort_keys=True)))
 
         get_response = self.table.get_item(
             Key={
@@ -169,5 +168,23 @@ class AccountService:
             persisted_account = get_response['Item']
             return Account(**persisted_account)
         else:
-            logger.error('get_response: {}'.format(json.dumps(get_response, indent=4, sort_keys=True)))
+            self.logger.error('get_response: {}'.format(json.dumps(get_response, indent=4, sort_keys=True)))
             return None
+
+    def delete(self, account: Account) -> None:
+        try:
+            self.logger.debug(
+                'AccountService delete called for accountId: {}, accountName: {}'.format(
+                    account.accountId,
+                    account.name)
+            )
+
+            resp = self.table.delete_item(
+                Key={
+                    'accountId': account.accountId,
+                }
+            )
+
+            assert_dynamodb_response(resp)
+        except Exception as exception:
+            self.logger.error('Exception during rollback: {}'.format(exception))

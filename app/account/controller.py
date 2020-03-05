@@ -38,6 +38,10 @@ class AccountResource(Resource):
         newAccountAuth: NewAccountAuth = NewAccountAuth(new_account, cognito_user)
         newAccountAuth.doChecks()
 
+        created_account: Account = None
+        created_repo: Repo = None
+        created_bucket: str = None
+
         try:
             created_account: Account = accountService.create(new_account, cognito_user=cognito_user)
             created_repo: Repo = repoService.create(created_account.accountId, new_account.repo,
@@ -48,7 +52,14 @@ class AccountResource(Resource):
             return created_account
         except Exception as exception:
             logger.error('Exception during new account creation: {}'.format(exception))
-            # todo: rollback
+            logger.error('Initiating rollback...')
+            # if createRepoBucket threw exception created_bucket will be None
+            if created_bucket is None and created_repo is not None:
+                repoService.delete(created_repo)
+                accountService.delete(created_account)
+            # if exception was raised during creating repo then created_repo will be None
+            elif created_repo is None and created_account is not None:
+                accountService.delete(created_account)
             abort(500, message='New account creation failed. Please try again.')
 
 
@@ -97,7 +108,7 @@ class AccountIdResource(Resource):
 @api.param("account_id", "Account ID")
 class AccountMemberResource(Resource):
 
-    @responds(schema=AccountMemberSchema, many=True)
+    @responds(schema=AccountMemberSchema(many=True))
     def get(self, account_id: str) -> List[AccountMember]:
         """Get Account Members"""
 
