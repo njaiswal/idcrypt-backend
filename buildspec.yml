@@ -24,15 +24,14 @@ phases:
     commands:
       - sls dynamodb install
       - nohup serverless offline start --stage test & echo $! > pidfile1
-      - nohup moto_server s3 -p4500 &> moto.out & echo $! > pidfile3 & tail -F moto.out & echo $! > pidfile4
-      - nohup python requestProcessRunner.py &> requestProcessRunner.out & echo $! > pidfile5 & tail -F requestProcessRunner.out & echo $! > pidfile6
+      - nohup moto_server s3 -p4500 & echo $! > pidfile2
+      - nohup python requestProcessRunner.py & echo $! > pidfile3
+      - tail -n 1000 -F nohup.out & echo $! > pidfile4
       - behave test-integration/features/
       - kill -9 $(cat pidfile1)
-#      - kill $(cat pidfile2)
+      - kill $(cat pidfile2)
       - kill $(cat pidfile3)
       - kill $(cat pidfile4)
-      - kill $(cat pidfile5)
-      - kill $(cat pidfile6)
       - mkdir -p target/dev
       - mkdir target/qa
       - serverless package --package target/dev --stage dev -v -r eu-west-1

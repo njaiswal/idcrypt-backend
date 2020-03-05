@@ -50,6 +50,8 @@ custom:
       seed: true
       convertEmptyValues: true
   cognito:
+    test:
+      userPoolArn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
     dev:
       userPoolArn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
     qa:
