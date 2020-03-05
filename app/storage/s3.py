@@ -119,6 +119,7 @@ class S3:
         )
 
         # Apply lifecycle policy to s3 bucket
+        # 'Days' in Transition action must be greater than or equal to 30 for storageClass 'STANDARD_IA'
         self.logger.info('Going to add lifecycle policy to s3 bucket: {}'.format(createdBucketName))
         self.client.put_bucket_lifecycle_configuration(
             Bucket=createdBucketName,
@@ -135,7 +136,7 @@ class S3:
                         'Status': 'Enabled',
                         'Transitions': [
                             {
-                                'Days': 1,
+                                'Days': 30,
                                 'StorageClass': 'STANDARD_IA'
                             }
                         ],
