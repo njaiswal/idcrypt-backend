@@ -1,20 +1,27 @@
-import resource
-from botocore.client import BaseClient
-from flask import Flask, jsonify, Blueprint
-from flask_restplus import Api
-import boto3
-import logging
+from flask import Flask
+from flask_restplus import Api, abort
+from webargs.flaskparser import parser
+from app.cognito.idp import IDP
 from app.database.db import DB
 from flask_cors import CORS
+from app.repos.service import RepoService
+from app.requests.service import RequestService
+from app.account.service import AccountService
+from app.accounts.service import AccountsService
+from app.storage.s3 import S3
 
-logger = logging.getLogger(__name__)
 db = DB()
+s3 = S3()
+idp = IDP()
+accountService: AccountService = AccountService()
+accountsService: AccountsService = AccountsService()
+requestService: RequestService = RequestService()
+repoService: RepoService = RepoService()
 
 
 def create_app(version="v1.0", env=None):
     from app.routes import register_routes
     from app.config import config_by_name
-    from app.db_schema import create_tables
 
     app = Flask(__name__)
 
@@ -36,14 +43,31 @@ def create_app(version="v1.0", env=None):
 
     app.config.from_object(config_by_name[env or "test"])
 
+    # Initialize IDP for Admin queries
+    idp.init(app)
+
     # Initialize DB
-    db.init(app)
+    db.init(app.config.get('REGION_NAME'), app.config.get('DYNAMODB_ENDPOINT_URL'))
+
+    # Initialize S3
+    s3.init(app)
+
+    # Initialize services
+    accountService.init(db, 'Accounts-{}'.format(env))
+    accountsService.init(db, 'Accounts-{}'.format(env))
+    requestService.init(db, 'Requests-{}'.format(env))
+    repoService.init(db, 'Repos-{}'.format(env))
 
     # Register routes
     register_routes(api)
 
-    @app.route("/health")
-    def health():
-        return jsonify("healthy")
-
     return app
+
+
+# This error handler is necessary for usage with Flask-RESTful
+@parser.error_handler
+def handle_request_parsing_error(error, req, schema, status_code, headers):
+    """webargs error handler that uses Flask-RESTful's abort function to return
+    a JSON error response to the client.
+    """
+    abort(422, errors=error.messages)

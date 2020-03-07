@@ -7,3 +7,6 @@
 /dynamodb_local_latest/shared-local-instance.db
 /node_modules/
 /.serverless/
+/.dynamodb/
+/run_build_test_phase.sh
+/inspect_moto_s3.sh

@@ -11,6 +11,9 @@ phases:
       - npm install --silent --no-progress -g serverless@1.63.0
       - serverless plugin install -n serverless-python-requirements
       - npm install serverless-domain-manager@3.3.1 --save-dev
+      - npm install serverless-offline@next --save-dev
+      - npm install --save serverless-dynamodb-local
+      - sls plugin install -n serverless-wsgi
   pre_build:
     commands:
       - pip install virtualenv
@@ -19,14 +22,16 @@ phases:
       - pip install -r requirements.txt
   build:
     commands:
-      - curl -LO https://s3.eu-central-1.amazonaws.com/dynamodb-local-frankfurt/dynamodb_local_latest.zip
-      - unzip dynamodb_local_latest.zip
-      - rm dynamodb_local_latest.zip
-      - nohup java -Djava.library.path=DynamoDBLocal_lib/ -jar DynamoDBLocal.jar -sharedDb & echo $! > pidfile
-      - pytest test/
-      - kill $(cat pidfile)
-      - rm -rf DynamoDBLocal_lib/
-      - rm DynamoDBLocal.jar
+      - sls dynamodb install
+      - nohup serverless offline start --stage test & echo $! > pidfile1
+      - nohup moto_server s3 -p4500 & echo $! > pidfile2
+      - nohup python requestProcessRunner.py & echo $! > pidfile3
+      - tail -n 1000 -F nohup.out & echo $! > pidfile4
+      - behave test-integration/features/
+      - kill -9 $(cat pidfile1)
+      - kill $(cat pidfile2)
+      - kill $(cat pidfile3)
+      - kill $(cat pidfile4)
       - mkdir -p target/dev
       - mkdir target/qa
       - serverless package --package target/dev --stage dev -v -r eu-west-1

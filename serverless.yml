@@ -3,6 +3,7 @@ service: idcrypt-backend
 # Also for time being creating certs same as domain name, if in future wildcard cert needs to be used we need to add
 # 'certificateName' under 'customDomain' section below.
 # Only dev.api.idcrypt.io has been added, for qa, uat, prod :
+#      test.api.idcrypt.io is also created
 
 #  Go to 'Route53'
 #  - First create a new hosted zone ENV.api.idcrypt.io of Type: Public Hosted Zone
@@ -25,12 +26,48 @@ service: idcrypt-backend
 custom:
   tableName:
     accounts: 'Accounts-${self:provider.stage}'
-    users: 'Users-${self:provider.stage}'
+    requests: 'Requests-${self:provider.stage}'
+    repos: 'Repos-${self:provider.stage}'
   customDomain:
     domainName: ${self:provider.stage}.api.idcrypt.io
     basePath: ''
     stage: ${self:provider.stage}
     createRoute53Record: true
+  wsgi:
+    app: backend.app
+    packRequirements: false
+    pythonBin: python3
+  pythonRequirements:
+    dockerizePip: false
+  dynamodb:
+    stages:
+      - test
+    start:
+      port: 8000
+      inMemory: true
+      heapInitial: 200m
+      heapMax: 1g
+      migrate: true
+      seed: true
+      convertEmptyValues: true
+  arns:
+    test:
+      userPoolArn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+      s3Arn: arn:aws:s3:::*
+    dev:
+      userPoolArn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+      s3Arn: arn:aws:s3:::*
+    qa:
+      userPoolArn: xxx
+      s3Arn: arn:aws:s3:::*
+    uat:
+      userPoolArn: xxx
+      s3Arn: arn:aws:s3:::*
+    prod:
+      userPoolArn: xxx
+      s3Arn: arn:aws:s3:::*
+
+
 
 #  corsOrigins:
 #    dev:
@@ -62,12 +99,31 @@ provider:
         - dynamodb:DeleteItem
       Resource:
         - { "Fn::GetAtt": ["AccountsDynamoDBTable", "Arn" ] }
-        - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["RequestsDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["ReposDynamoDBTable", "Arn" ] }
     - Effect: Allow
       Action:
         - dynamodb:ListTables
+        - dynamodb:Query
       Resource:
         - Fn::Join: ["", [ "arn:aws:dynamodb:", { "Ref": "AWS::Region" }, ':', { Ref: "AWS::AccountId" }, ":table/*" ]]
+    - Effect: Allow
+      Action:
+        - cognito-idp:ListUsers
+      Resource:
+        - ${self:custom.arns.${self:provider.stage}.userPoolArn}
+    - Effect: Allow
+      Action:
+        - s3:CreateBucket
+        - s3:PutBucketLogging
+        - s3:PutBucketTagging
+        - s3:PutEncryptionConfiguration
+        - s3:PutLifecycleConfiguration
+        - s3:PutObject
+      Resource:
+        - ${self:custom.arns.${self:provider.stage}.s3Arn}
+
+
   environment:
     STAGE: ${opt:stage}
 
@@ -75,7 +131,7 @@ functions:
   idcryptBackend:
     environment:
       ENV: ${opt:stage, 'dev'}
-    handler: backend.handler
+    handler: wsgi_handler.handler
     events:
       - http:
           path: /
@@ -83,14 +139,25 @@ functions:
           cors: true
           authorizer:
             name: authorizer
-            arn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+            arn: ${self:custom.arns.${self:provider.stage}.userPoolArn}
       - http:
           path: /{proxy+}
           method: ANY
           authorizer:
             name: authorizer
-            arn: arn:aws:cognito-idp:eu-west-1:758837945329:userpool/eu-west-1_R8z2Oswjr
+            arn: ${self:custom.arns.${self:provider.stage}.userPoolArn}
           cors: true
+  idcryptEventProcessor:
+    environment:
+      ENV: ${opt:stage, 'dev'}
+    handler: requestProcessor.handler
+    events:
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt: [ RequestsDynamoDBTable, StreamArn ]
+          batchSize: 1
+          startingPosition: LATEST
 
 resources:
   Resources:
@@ -100,6 +167,12 @@ resources:
         AttributeDefinitions:
           - AttributeName: accountId
             AttributeType: S
+          - AttributeName: name
+            AttributeType: S
+          - AttributeName: domain
+            AttributeType: S
+          - AttributeName: owner
+            AttributeType: S
         KeySchema:
           - AttributeName: accountId
             KeyType: HASH
@@ -107,22 +180,124 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:custom.tableName.accounts}
-    UsersDynamoDBTable:
+        GlobalSecondaryIndexes:
+          - IndexName: AccountNameIndex
+            KeySchema:
+              - AttributeName: name
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+          - IndexName: AccountDomainIndex
+            KeySchema:
+              - AttributeName: domain
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+          - IndexName: AccountOwnerIndex
+            KeySchema:
+              - AttributeName: owner
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+    RequestsDynamoDBTable:
       Type: 'AWS::DynamoDB::Table'
       Properties:
         AttributeDefinitions:
-          - AttributeName: userId
-            AttributeType: S
           - AttributeName: accountId
             AttributeType: S
+          - AttributeName: requestId
+            AttributeType: S
+          - AttributeName: requestee
+            AttributeType: S
+          - AttributeName: status
+            AttributeType: S
+          - AttributeName: requestType
+            AttributeType: S
         KeySchema:
-          - AttributeName: userId
+          - AttributeName: accountId
             KeyType: HASH
+          - AttributeName: requestId
+            KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
-        TableName: ${self:custom.tableName.users}
+        TableName: ${self:custom.tableName.requests}
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE
         GlobalSecondaryIndexes:
+          - IndexName: RequesteeAndStatusIndex
+            KeySchema:
+              - AttributeName: requestee
+                KeyType: HASH
+              - AttributeName: status
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+          - IndexName: AccountIdAndStatusIndex
+            KeySchema:
+              - AttributeName: accountId
+                KeyType: HASH
+              - AttributeName: status
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+          - IndexName: RequesteeAndRequestTypeIndex
+            KeySchema:
+              - AttributeName: requestee
+                KeyType: HASH
+              - AttributeName: requestType
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+    ReposDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: accountId
+            AttributeType: S
+          - AttributeName: repoId
+            AttributeType: S
+          - AttributeName: name
+            AttributeType: S
+        KeySchema:
+          - AttributeName: accountId
+            KeyType: HASH
+          - AttributeName: repoId
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName.repos}
+        GlobalSecondaryIndexes:
+          - IndexName: AccountIdAndRepoNameIndex
+            KeySchema:
+              - AttributeName: accountId
+                KeyType: HASH
+              - AttributeName: name
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
           - IndexName: AccountIdIndex
             KeySchema:
               - AttributeName: accountId
@@ -130,13 +305,19 @@ resources:
             Projection:
               ProjectionType: ALL
             ProvisionedThroughput:
-              ReadCapacityUnits: '5'
-              WriteCapacityUnits: '5'
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
 package:
   exclude:
     - .lambda_env/**
+    - .dynamodb/**
+    - .pytest_cache/**
+    - node_modules/**
+    - env/**
 
 plugins:
   - serverless-python-requirements
   - serverless-domain-manager
-
+  - serverless-offline
+  - serverless-dynamodb-local
+  - serverless-wsgi

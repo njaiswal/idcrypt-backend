@@ -1,36 +1,40 @@
-from app import db
+from flask_restplus import abort
 import logging
+from app.cognito.cognitoUser import CognitoUser
 
 logger = logging.getLogger(__name__)
 
 
-def create_table_needed(TABLE_NAME, env=None):
-    """
-    Deletes existing TABLE_NAME if env == test
-    Returns True if re-creation of TABLE_NAME needed else returns False
-    """
+def get_cognito_user(flask_request):
+    # serverless_wsgi puts following in wsgi environment dict
+    # "API_GATEWAY_AUTHORIZER": event[u"requestContext"].get(u"authorizer"),
+    # Refer: https://github.com/logandk/serverless-wsgi/blob/master/serverless_wsgi.py#L159
 
-    # Returns first 100 table names
-    response = db.client.list_tables(Limit=100)
+    if 'API_GATEWAY_AUTHORIZER' not in flask_request.environ:
+        abort(message='Authentication error: XA')
 
-    # If table exists do not re-create unless env == test
-    if TABLE_NAME in response['TableNames']:
-        if env == 'test':
-            logger.info('{} table already exists. Deleting it since env={}'.format(TABLE_NAME, env))
-            response = db.client.delete_table(
-                TableName=TABLE_NAME
-            )
-            waiter = db.client.get_waiter('table_not_exists')
-            waiter.wait(TableName=TABLE_NAME)
-        else:
-            logger.info('{} table already exists. Ignore create request.'.format(TABLE_NAME))
-            return False
+    authorizer = flask_request.environ['API_GATEWAY_AUTHORIZER']
 
-    return True
+    if 'claims' not in authorizer:
+        abort(message='Authentication error: XC')
+    claims = authorizer['claims']
 
+    if 'cognito:username' not in claims:
+        abort(message='Authentication error: XU')
+    username = claims['cognito:username']
 
-def wait_for_table_to_exist(TABLE_NAME):
-    # Wait for the table to exist before exiting
-    logger.info('Waiting for {} to be created...'.format(TABLE_NAME))
-    waiter = db.client.get_waiter('table_exists')
-    waiter.wait(TableName=TABLE_NAME)
+    if 'email' not in claims:
+        abort(message='Authentication error: XE')
+    email = claims['email']
+
+    if 'email_verified' not in claims or not claims['email_verified']:
+        abort(message='Authentication error: XV')
+
+    if 'sub' not in claims:
+        abort(message='Authentication error: XS')
+    sub = claims['sub']
+
+    cognito_user = CognitoUser(username, email, sub)
+    logger.info('CognitoUser - username: {}, email: {}, sub={}'.format(cognito_user.username, cognito_user.email,
+                                                                       cognito_user.sub))
+    return cognito_user
