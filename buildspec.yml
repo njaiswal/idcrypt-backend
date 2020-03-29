@@ -32,7 +32,7 @@ phases:
     commands:
       - sls dynamodb install
       - ./runTestSetup.sh
-      - behave test-integration/features/
+      - behave test-integration/features/ -f plain
       - ./runTestCleanup.sh
       - mkdir -p target/dev
       - mkdir target/qa
