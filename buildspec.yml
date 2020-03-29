@@ -55,4 +55,5 @@ artifacts:
   files:
     - target/**/*
     - serverless.yml
+    - infra/*
     - deploy.sh
