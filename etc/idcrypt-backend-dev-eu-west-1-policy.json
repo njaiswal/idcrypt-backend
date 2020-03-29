@@ -215,7 +215,9 @@
       "Action": [
         "textract:DetectDocumentText"
       ],
-      "Resource": "*"
+      "Resource": [
+        "*"
+      ]
     }
   ]
 }

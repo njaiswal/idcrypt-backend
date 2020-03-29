@@ -11,7 +11,6 @@ kill $(cat pidfile7)
 
 rm pidfile1
 rm pidfile2
-rm pidfile3
 rm pidfile4
 rm pidfile5
 rm pidfile6
