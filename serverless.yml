@@ -150,6 +150,10 @@ provider:
       Resource:
         - { "Fn::GetAtt": ["DocSearch", "DomainArn"] }
         - { "Fn::Join": ["", ["Fn::GetAtt": ["DocSearch", "DomainArn"], "/*"]] }
+    - Effect: Allow
+      Action:
+        - textract:DetectDocumentText
+      Resource: "*"
 
 
   environment:

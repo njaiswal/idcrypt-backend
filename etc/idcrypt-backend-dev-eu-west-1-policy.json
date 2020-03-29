@@ -209,6 +209,13 @@
       "Resource": [
         "arn:aws:s3:::*"
       ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "textract:DetectDocumentText"
+      ],
+      "Resource": "*"
     }
   ]
 }
