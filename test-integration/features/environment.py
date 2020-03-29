@@ -13,6 +13,7 @@ def before_feature(context, feature):
     wait_for_port(port=8000, host='localhost', timeout=60.0)  # Dynamodb server
     wait_for_table_to_exist('Accounts-test')
     wait_for_port(port=4500, host='localhost', timeout=60.0)  # moto s3 server
+    wait_for_port(port=9300, host='localhost', timeout=60.0)  # elasticserach server
 
     app.testing = True
     context.client = app.test_client()
@@ -23,7 +24,8 @@ def before_scenario(context, scenario):
     for (tableName, projectionExpression, hashKey, sortKey) in [
         ('Accounts-test', 'accountId', 'accountId', None),
         ('Requests-test', 'accountId, requestId', 'accountId', 'requestId'),
-        ('Repos-test', 'accountId, repoId', 'accountId', 'repoId')
+        ('Repos-test', 'accountId, repoId', 'accountId', 'repoId'),
+        ('Docs-test', 'repoId, docId', 'repoId', 'docId')
     ]:
         table = db.dynamodb_resource.Table(tableName)
         scan = None
@@ -51,7 +53,7 @@ def before_scenario(context, scenario):
     # Delete all s3 buckets as well
     deletedBuckets = 0
     for bucket in s3.client.list_buckets()['Buckets']:
-        bucketResource = s3.s3_resource.Bucket(bucket['Name'])
+        bucketResource = s3.resource.Bucket(bucket['Name'])
         bucketResource.objects.all().delete()
         bucketResource.delete()
         deletedBuckets = deletedBuckets + 1
@@ -59,6 +61,26 @@ def before_scenario(context, scenario):
         waiter.wait(Bucket=bucket['Name'])
 
     logger.info('Deleted {} buckets from s3'.format(deletedBuckets))
+
+    # Create upload bucket
+    s3.client.create_bucket(
+        Bucket='idcrypt-document-uploads-test',
+        CreateBucketConfiguration={
+            'LocationConstraint': 'eu-west-1'
+        }
+    )
+    waiter = s3.client.get_waiter('bucket_exists')
+    waiter.wait(Bucket='idcrypt-document-uploads-test')
+
+    # Create upload errors bucket
+    s3.client.create_bucket(
+        Bucket='idcrypt-upload-errors-test',
+        CreateBucketConfiguration={
+            'LocationConstraint': 'eu-west-1'
+        }
+    )
+    waiter = s3.client.get_waiter('bucket_exists')
+    waiter.wait(Bucket='idcrypt-upload-errors-test')
 
     # Create logging bucket
     s3.client.create_bucket(
@@ -70,7 +92,7 @@ def before_scenario(context, scenario):
     waiter = s3.client.get_waiter('bucket_exists')
     waiter.wait(Bucket='idcrypt-s3-access-logs')
 
-    # Give the group log-delievery WRITE and READ_ACP permisions to the target logging bucket
+    # Give the group log-delivery WRITE and READ_ACP permissions to the target logging bucket
     s3.client.put_bucket_acl(
         ACL='log-delivery-write',
         Bucket='idcrypt-s3-access-logs'

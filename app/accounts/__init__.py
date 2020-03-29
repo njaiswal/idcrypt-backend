@@ -1,7 +1,4 @@
-import logging
-
 BASE_ROUTE = "accounts"
-logger = logging.getLogger(__name__)
 
 
 def register_routes(api):

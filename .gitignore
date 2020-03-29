@@ -10,3 +10,5 @@
 /.dynamodb/
 /run_build_test_phase.sh
 /inspect_moto_s3.sh
+/kibana-7.4.2-darwin-x86_64/
+/elasticsearch-7.4.2/

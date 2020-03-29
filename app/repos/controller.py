@@ -1,4 +1,3 @@
-import logging
 from typing import List
 from flask import request
 from flask_accepts import responds, accepts
@@ -9,9 +8,10 @@ from .model import Repo, NewRepo
 from .schema import RepoSchema, NewRepoSchema
 from .. import repoService, accountService, s3, idp
 from ..account.model import Account
+from ..shared import getLogger
 from ..utils import get_cognito_user
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 api = Namespace(
     name='repos',

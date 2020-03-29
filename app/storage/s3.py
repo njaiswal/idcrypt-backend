@@ -6,37 +6,64 @@ import boto3
 import botocore
 from boto3 import s3
 from botocore.client import BaseClient
-from flask import Flask
 from app.account.model import Account
 from app.appException import AppException
 from app.repos.model import Repo
-import logging
 from random import randint
+
+from app.shared import getLogger
+
+
+def craftBucketNameFrom(name: str) -> str:
+    # Bucket name should conform with DNS requirements:
+    #     - Should not contain uppercase characters
+    #     - Should not contain underscores (_)
+    #     - Should be between 3 and 63 characters long
+    #     - Should not end with a dash
+    #     - Cannot contain two, adjacent periods
+    #     - Cannot contain dashes next to periods (e.g., "my-.bucket.com" and "my.-bucket" are invalid)
+
+    # Since we already schema check account name and repo name with schema like
+    # name = fields.String(attribute="name", required=True, validate=[
+    #     validate.Length(min=3, max=30),
+    #     validate.Regexp(r"^[a-zA-Z0-9 ]*$", error="Account name must not contain special characters.")
+    # ])
+
+    name = name.strip()  # Remove leading and trailing spaces if any
+    name = name.replace(' ', '-')  # Replace all spaces with hyphen
+    name = name.lower()
+    return name
+
+
+def getBucketNameForRepo(repo: Repo):
+    return craftBucketNameFrom(repo.name)
+
+
+def getBucketNameForAccount(account: Account):
+    return craftBucketNameFrom(account.name)
 
 
 class S3:
     client: botocore.client = None
-    s3_resource: s3 = None
+    resource: s3 = None
     s3_endpoint: str = None
     region: str = None
-    env: str = None
     loggingBucketName = None
     logger = None
 
-    def init(self, app: Flask):
-        self.s3_endpoint = app.config.get('S3_ENDPOINT_URL')
-        self.region = app.config.get('REGION_NAME')
-        self.env = app.config.get('CONFIG_NAME')
+    def init(self, region: str, s3_endpoint: str, loggingBucketName: str):
+        self.s3_endpoint = s3_endpoint
+        self.region = region
         self.client = boto3.client('s3',
                                    region_name=self.region,
                                    endpoint_url=self.s3_endpoint
                                    )
-        self.s3_resource = boto3.resource('s3',
-                                          region_name=self.region,
-                                          endpoint_url=self.s3_endpoint
-                                          )
-        self.loggingBucketName = app.config.get('LOGGING_BUCKET_NAME')
-        self.logger = logging.getLogger(__name__)
+        self.resource = boto3.resource('s3',
+                                       region_name=self.region,
+                                       endpoint_url=self.s3_endpoint
+                                       )
+        self.loggingBucketName = loggingBucketName
+        self.logger = getLogger(__name__)
 
     def attemptBucketCreate(self, bucketName) -> str:
         """ Attempts 10 times to create bucket with name=bucketName-xxx where xxxx is random between 1000-9999
@@ -65,7 +92,7 @@ class S3:
         raise AppException('Could not create bucket for account name: {}'.format(bucketName))
 
     def createRepoBucket(self, account: Account, repo: Repo) -> str:
-        bucketName = self.craftBucketNameFrom(account.name)
+        bucketName = craftBucketNameFrom(account.name)
 
         # Create bucket
         self.logger.info('Going to create S3 bucket with name: {}'.format(bucketName))
@@ -76,7 +103,7 @@ class S3:
 
         # Update bucket logging
         self.logger.info('Going to update S3 bucket: {} logging with target bucket: {}'.format(createdBucketName,
-                                                                                           self.loggingBucketName))
+                                                                                               self.loggingBucketName))
         self.client.put_bucket_logging(
             Bucket=createdBucketName,
             BucketLoggingStatus={
@@ -120,6 +147,7 @@ class S3:
 
         # Apply lifecycle policy to s3 bucket
         # 'Days' in Transition action must be greater than or equal to 30 for storageClass 'STANDARD_IA'
+        # PutBucketLifecycleConfiguration operation: 'Days' in the Expiration action for filter '(prefix=)' must be greater than 'Days' in the Transition action
         self.logger.info('Going to add lifecycle policy to s3 bucket: {}'.format(createdBucketName))
         self.client.put_bucket_lifecycle_configuration(
             Bucket=createdBucketName,
@@ -163,27 +191,7 @@ class S3:
                     'Repo Name: {} '.format(repo.name)
                 ]
                 tmp.writelines(metaInfo)
-            repoFolderName = self.craftBucketNameFrom(repo.name)
+            repoFolderName = craftBucketNameFrom(repo.name)
             self.client.upload_file(path, bucketName, '{}/metaInfo.txt'.format(repoFolderName))
         finally:
             os.remove(path)
-
-    def craftBucketNameFrom(self, name: str) -> str:
-        # Bucket name should conform with DNS requirements:
-        #     - Should not contain uppercase characters
-        #     - Should not contain underscores (_)
-        #     - Should be between 3 and 63 characters long
-        #     - Should not end with a dash
-        #     - Cannot contain two, adjacent periods
-        #     - Cannot contain dashes next to periods (e.g., "my-.bucket.com" and "my.-bucket" are invalid)
-
-        # Since we already schema check account name and repo name with schema like
-        # name = fields.String(attribute="name", required=True, validate=[
-        #     validate.Length(min=3, max=30),
-        #     validate.Regexp(r"^[a-zA-Z0-9 ]*$", error="Account name must not contain special characters.")
-        # ])
-
-        name = name.strip()  # Remove leading and trailing spaces if any
-        name = name.replace(' ', '-')  # Replace all spaces with hyphen
-        name = name.lower()
-        return name

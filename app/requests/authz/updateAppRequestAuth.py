@@ -1,8 +1,11 @@
 from flask_restplus import abort
-from app import accountService, requestService
+from app import accountService, requestService, repoService
 from app.account.model import Account
 from app.cognito.cognitoUser import CognitoUser
-from app.requests.model import AppRequest, UpdateAppRequest
+from app.repos.model import Repo
+from app.requests.authz.sharedRequestAuth import getResourceType
+from app.requests.model import AppRequest, UpdateAppRequest, RequestType
+from app.shared import getLogger
 
 
 class UpdateAppRequestAuth:
@@ -10,6 +13,7 @@ class UpdateAppRequestAuth:
         self.request: UpdateAppRequest = request
         self.user: CognitoUser = user
         self.new_status: str = new_status
+        self.logger = getLogger(__name__)
 
     def doChecks(self):
         """
@@ -60,13 +64,31 @@ class UpdateAppRequestAuth:
         if self.new_status == 'cancelled':
             if self.requestInDb.requestor != self.user.sub:
                 abort(403, message='Only requestor can cancel this request.')
+            else:
+                return
 
-        if self.new_status in ['approved', 'denied']:
-            if self.user.sub != account.owner:
-                # or self.user.sub in account.admins todo
-                abort(403, message='Not Authorized.')
+        resourceType = getResourceType(self.requestInDb.requestType)
 
-        # todo: add who can approve deny documentAccess request
-        # todo: add who can change status to closed/failed
+        # Filter out status types that do not make sense, may be remove them from schema. todo.
         if self.new_status in ['closed', 'failed']:
             abort(500, message='Closed, Failed not implemented yet')
+
+        # If resourceType is account or repo, allow state change by the owner and admins(todo)
+        if self.new_status in ['approved', 'denied'] and resourceType in ['account', 'repo']:
+            if self.user.sub != account.owner:
+                abort(403, message='Not Authorized.')
+            else:
+                return
+
+        # If resourceType is doc, allow state change by the owner, approvers and admins(todo)
+        if self.new_status in ['approved', 'denied'] and resourceType in ['doc']:
+            self.repo: Repo = repoService.get_by_id(self.requestInDb.accountId, self.requestInDb.requestedOnResource.split('#')[0])
+            if self.user.sub == account.owner or self.user.sub in self.repo.approvers:
+                return
+            else:
+                abort(403, message='Not Authorized.')
+
+        self.logger.error('Cannot decide weather to allow state change. Hence will deny authorization.')
+        abort(403, message='Not Authorized')
+        # todo: add who can approve deny documentAccess request
+        # todo: add who can change status to closed/failed

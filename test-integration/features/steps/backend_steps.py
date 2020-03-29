@@ -1,20 +1,26 @@
 import hashlib
 import json
 import logging
+import os
 import pprint
 import time
+import uuid
+
 from behave import given, when, then, step
 from boto3.dynamodb.conditions import Key
 from deepdiff import DeepDiff
 from flask import Response
 from hamcrest import *
-from app import db, s3, requestService, accountService
+from app import db, s3, requestService, accountService, docService
 from app.database.db import assert_dynamodb_response
+from app.docs.model import Doc
 
 base_url = '/api/v1.0'
 
 logger = logging.getLogger(__name__)
 logger.setLevel('DEBUG')
+uploadBucketName = 'idcrypt-document-uploads-test'
+uploadErrorsBucketName = 'idcrypt-upload-errors-test'
 
 
 @given(u'backend app is setup')
@@ -36,6 +42,31 @@ def options(context, uri):
     context.response = response
 
 
+@step(u"i try to download doc with accountId: '{accountId}' repoId: '{repoId}' docId: '{docId}'")
+def download_doc(context, accountId, repoId, docId):
+    effective_accountId = accountId
+    effective_repoId = repoId
+    effective_docId = docId
+
+    last_json_response = json.loads(json.dumps(context.response.get_json()))
+    if isinstance(last_json_response, list):
+        last_json_response = last_json_response[0]
+
+    if accountId == 'last_saved_accountId':
+        assert 'accountId' in last_json_response
+        effective_accountId = last_json_response['accountId']
+
+    if repoId == 'last_saved_repoId':
+        assert 'repoId' in last_json_response
+        effective_repoId = last_json_response['repoId']
+
+    if docId == 'last_saved_docId':
+        assert 'docId' in last_json_response
+        effective_docId = last_json_response['docId']
+
+    get(context,
+        '/docs/download?accountId={}&repoId={}&docId={}'.format(effective_accountId, effective_repoId, effective_docId))
+
 @step(u'i GET "{uri}"')
 def get(context, uri):
     url = '{}{}'.format(base_url, uri)
@@ -45,15 +76,122 @@ def get(context, uri):
     context.response = response
 
 
-@step(u"i submit create repo request with '{payload}'")
-def submit_create_repo(context, payload):
+@step(u"last_uploaded_file appears in upload errors bucket")
+def stat_last_uploaded_file_in_errors_bucket(context):
+    uploadErrorsBucket = s3.resource.Bucket(uploadErrorsBucketName)
+    assert context.last_uploaded_file is not None
+
+    fileFound = False
+    for i in range(0, 30):
+        objectKeys = dict()
+        for s3Object in uploadErrorsBucket.objects.all():
+            objectKeys[s3Object.key] = True
+
+        logger.info('Objects in upload Bucket: {}'.format(objectKeys))
+        if context.last_uploaded_file not in objectKeys:
+            time.sleep(0.5)
+            continue
+        else:
+            fileFound = True
+            break
+    assert fileFound
+
+
+@step(u"last_uploaded_file is removed from upload bucket")
+def stat_last_uploaded_file(context):
+    uploadBucket = s3.resource.Bucket(uploadBucketName)
+    assert context.last_uploaded_file is not None
+
+    fileFound = True
+    for i in range(0, 30):
+        objectKeys = dict()
+        for s3Object in uploadBucket.objects.all():
+            objectKeys[s3Object.key] = True
+
+        logger.info('Objects in upload Bucket: {}'.format(objectKeys))
+        if context.last_uploaded_file in objectKeys:
+            time.sleep(0.5)
+            continue
+        else:
+            fileFound = False
+            break
+    assert not fileFound
+
+
+@step(u"i upload {fileName} with '{repoId}' and '{docId}' and type '{docType}'")
+def upload_doc(context, fileName, repoId, docId, docType):
+    last_json_response = json.loads(json.dumps(context.response.get_json()))
+    if repoId == 'saved_repoId':
+        assert 'repoId' in last_json_response
+        repoId = last_json_response['repoId']
+    if docId == 'saved_docId':
+        assert 'docId' in last_json_response
+        docId = last_json_response['docId']
+
+    if repoId == 'incorrect':
+        repoId = str(uuid.uuid4())
+        docId = str(uuid.uuid4())
+
+    s3UploadDoc(context, fileName, repoId, docId, docType)
+
+
+@step(
+    u"i submit create doc request with for account with name '{accountName}' and repo with name '{repoName}' and customer name '{name}'")
+def submit_create_doc(context, accountName, repoName, name):
+    accountId = get_account_by_name(accountName)['accountId']
+    repoId = get_repo_by_name(accountId, repoName)['repoId']
+
+    assert accountId is not None
+    assert repoId is not None
+
+    payload = dict()
+    payload['accountId'] = accountId
+    payload['repoId'] = repoId
+    payload['name'] = name
+    submit_create_resource(context, 'doc', json.dumps(payload))
+
+
+@step(u"i query downloadable docs for account name '{accountName}' and repo name '{repoName}' and '{text}'")
+def query_downloadable_docs_by_account_repo_name(context, accountName, repoName, text):
+    query_docs(context, accountName, repoName, text, downloadable=True)
+
+
+@step(u"i query docs for account name '{accountName}' and repo name '{repoName}' and '{text}'")
+def query_docs_by_account_repo_name(context, accountName, repoName, text):
+    query_docs(context, accountName, repoName, text)
+
+
+def query_docs(context, accountName, repoName, text, downloadable=None):
+    time.sleep(2.0)
+    accountId = get_account_by_name(accountName)['accountId']
+    repoId = get_repo_by_name(accountId, repoName)['repoId']
+    get(context, '/docs/?accountId={}&repoId={}{}{}'.format(
+        accountId,
+        repoId,
+        '&text={}'.format(text) if text != 'null' else '',
+        '&downloadable=true'.format(text) if downloadable is not None else ''
+    ))
+
+
+@step(u"i submit create {resource} request with '{payload}'")
+def submit_create_resource(context, resource, payload):
+    if 'accountId' in payload and json.loads(payload)['accountId'] == 'last_created_accountId':
+        last_json_response = json.dumps(context.response.get_json())
+        effective_account_id = json.loads(last_json_response)['accountId']
+        payload_dict = json.loads(payload)
+        payload_dict['accountId'] = effective_account_id
+        payload = json.dumps(payload_dict)
+
     context.text = payload
-    create_new_repo(context)
+    create_new_resource(context, resource)
 
 
-@step(u'i create a new repo with payload')
-def create_new_repo(context):
-    url = '{}{}'.format(base_url, '/repos/')
+@step(u'i create a new {resource} with payload')
+def create_new_resource(context, resource):
+    assert resource in ['repo', 'doc', 'account']
+
+    uri = '{}s'.format(resource) if resource in ['repo', 'doc'] else '{}'.format(resource)
+    url = '{}{}'.format(base_url, '/{}/'.format(uri))
     payload: dict = json.loads(context.text)
 
     response = context.client.post(url, environ_base={'API_GATEWAY_AUTHORIZER': context.auth_header}, json=payload)
@@ -62,25 +200,7 @@ def create_new_repo(context):
     assert response.headers.get('Access-Control-Allow-Origin') == 'http://localhost:4200'
     assert response.headers.get('Access-Control-Allow-Credentials') == 'true'
     context.response = response
-
-
-@step(u"i submit create account request with '{payload}'")
-def submit_create_account(context, payload):
-    context.text = payload
-    create_new_account(context)
-
-
-@step(u'i create a new account with payload')
-def create_new_account(context):
-    url = '{}{}'.format(base_url, '/account/')
-    payload: dict = json.loads(context.text)
-
-    response = context.client.post(url, environ_base={'API_GATEWAY_AUTHORIZER': context.auth_header}, json=payload)
-    assert response
-
-    assert response.headers.get('Access-Control-Allow-Origin') == 'http://localhost:4200'
-    assert response.headers.get('Access-Control-Allow-Credentials') == 'true'
-    context.response = response
+    context.last_created_resource_response = response
 
 
 @step(u"i update account '{accountName}' with query parameter {queryParam}")
@@ -141,13 +261,30 @@ def app_request_params_with_requestee(context, requestType, accountId, requested
     url = '{}{}'.format(base_url, '/requests/')
 
     effective_account_id = accountId
-    if accountId == 'last_created_accountId':
-        last_json_response = json.dumps(context.response.get_json())
-        effective_account_id = json.loads(last_json_response)['accountId']
+    effective_requestedOnResource = requestedOnResource
+
+    if context.response.get_json() is not None:
+        last_json_response = json.loads(json.dumps(context.response.get_json()))
+        if isinstance(last_json_response, list):
+            last_json_response = last_json_response[0]
+
+        if accountId == 'last_created_accountId':
+            assert 'accountId' in last_json_response
+            effective_account_id = last_json_response['accountId']
+
+        if 'last_created_repoId' in requestedOnResource:
+            assert 'repoId' in last_json_response
+            effective_requestedOnResource = effective_requestedOnResource.replace('last_created_repoId',
+                                                                                  last_json_response['repoId'])
+
+        if 'last_created_docId' in requestedOnResource:
+            assert 'docId' in last_json_response
+            effective_requestedOnResource = effective_requestedOnResource.replace('last_created_docId',
+                                                                                  last_json_response['docId'])
 
     payload = dict(accountId=effective_account_id,
                    requestType=requestType,
-                   requestedOnResource=requestedOnResource)
+                   requestedOnResource=effective_requestedOnResource)
 
     if requesteeEmail is not None:
         payload['requesteeEmail'] = requesteeEmail
@@ -189,6 +326,31 @@ def wait_for_request_status(context, status):
         time.sleep(0.1)
 
     assert appRequest.status == status
+
+
+@step(u"text for last_created doc is populated")
+def docText(context):
+    repoId = json.loads(json.dumps(context.last_created_resource_response.get_json()))['repoId']
+    docId = json.loads(json.dumps(context.last_created_resource_response.get_json()))['docId']
+    doc: Doc = docService.get_by_id(repoId, docId)
+    logger.info('Document text: {}'.format(doc.text))
+    assert len(doc.text) > 10
+
+
+@step(u"i wait for last_created doc to get '{status}'")
+def wait_for_doc_status(context, status):
+    repoId = json.loads(json.dumps(context.last_created_resource_response.get_json()))['repoId']
+    docId = json.loads(json.dumps(context.last_created_resource_response.get_json()))['docId']
+
+    doc = None
+    for i in range(0, 200):
+        doc: Doc = docService.get_by_id(repoId, docId)
+        logger.info('Doc new status = {}'.format(doc.status))
+        if doc.status == status:
+            break
+        time.sleep(0.1)
+
+    assert doc.status == status
 
 
 @step(u'i mark {requestType} request as {new_status}')
@@ -276,10 +438,12 @@ def response_status_code(context, code):
                                         "root['accountId']",
                                         "root['requestId']",
                                         "root['requestedOnResource']",
-                                        "root['repoId']"
+                                        "root['repoId']",
+                                        "root['docId']",
+                                        "root['base64Content']"
                                         ],
                          exclude_regex_paths=[
-                             r"root\[\d+\]\['(createdAt|accountId|repoId)'\]",
+                             r"root\[\d+\]\['(createdAt|accountId|repoId|docId)'\]",
                              r"root\['updateHistory'\]\[\d+\]"
                          ])
         logger.info('Diff of actual and expected response below:')
@@ -303,7 +467,7 @@ def response_status_code(context, code):
 @step(u"repo meta info file '{pathToMetaInfoFile}' is available for account '{accountName}'")
 def verify_s3_repo_metaInfo(context, pathToMetaInfoFile, accountName):
     s3BucketName = get_account_by_name(accountName)['bucketName']
-    bucketResource = s3.s3_resource.Bucket(s3BucketName)
+    bucketResource = s3.resource.Bucket(s3BucketName)
 
     objectKeysInBucket = []
     for obj in bucketResource.objects.all():
@@ -320,7 +484,7 @@ def account_not_present(context, accountName):
 @step(u"s3 logging bucket is missing")
 def delete_s3_logging_bucket(context):
     # delete all objects in logging bucket
-    bucketResource = s3.s3_resource.Bucket('idcrypt-s3-access-logs')
+    bucketResource = s3.resource.Bucket('idcrypt-s3-access-logs')
     bucketResource.objects.all().delete()
     bucketResource.delete()
 
@@ -351,6 +515,13 @@ def exhaust_s3_namespace(context, bucketNameSpace):
                 'LocationConstraint': s3.region
             }
         )
+
+
+def s3UploadDoc(context, fileName, repoId, docId, docType):
+    assert os.path.isfile(fileName)
+    key = 'private/cognito-identity-xxxxxx/{}/{}/{}'.format(repoId, docId, docType)
+    s3.client.upload_file(fileName, uploadBucketName, key)
+    context.last_uploaded_file = key
 
 
 def get_fake_auth_headers(email: str):

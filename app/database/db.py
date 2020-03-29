@@ -1,5 +1,4 @@
 import json
-import logging
 
 import boto3
 import botocore
@@ -7,9 +6,11 @@ from boto3 import dynamodb
 from botocore.client import BaseClient
 from flask_restplus import abort
 
+from app.shared import getLogger
+
 
 def assert_dynamodb_response(response, expected_attribute=None):
-    logger = logging.getLogger(__name__)
+    logger = getLogger(__name__)
 
     if response is None:
         logger.error('Dynamodb response is None')

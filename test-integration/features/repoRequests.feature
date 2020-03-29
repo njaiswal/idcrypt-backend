@@ -173,6 +173,68 @@ Feature: Add remove users as repo users
       | joinAsRepoApprover |
       | grantRepoAccess    |
 
+  Scenario Outline: User can submit two grantRepoAccess request for a different repo
+    Given backend app is setup
+    And i am logged in as joe@jrn-limited.com
+    When i submit create account request with '{ "name": "Joe Car Hire", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}'
+    Then i should get response with status code 200
+    When i submit create repo request with '{"name": "My Repo 2",  "desc": "My Repo 2",  "retention": 30 }'
+    Then i should get response with status code 200
+
+    When i am logged in as sam@jrn-limited.com
+    And i submit request of type joinAccount for 'Joe Car Hire'
+
+    When i am logged in as joe@jrn-limited.com
+    And i mark last_submitted request as approved
+    And i wait for last_submitted request to get 'closed'
+    And i GET "/accounts/"
+    Then i should get response with status code 200
+
+    When i am logged in as sam@jrn-limited.com
+    And i submit request of type <requestType> for account 'Joe Car Hire' and repo 'My Repo 1'
+    Then i should get response with status code 200
+    And i submit request of type <requestType> for account 'Joe Car Hire' and repo 'My Repo 2'
+    Then i should get response with status code 200
+    When i GET "/requests/?status=pending"
+    Then i should get response with status code 200 and data
+      """
+      [
+        {
+          "requestId": "***",
+          "accountId": "***",
+          "accountName": "Joe Car Hire",
+          "requestee": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+          "requestor": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+          "requesteeEmail": "sam@jrn-limited.com",
+          "requestorEmail": "sam@jrn-limited.com",
+          "requestType": "grantRepoAccess",
+          "requestedOnResource": "***",
+          "requestedOnResourceName": "My Repo 2",
+          "status": "pending",
+          "createdAt": "***",
+          "updateHistory": []
+        },
+        {
+          "requestId": "****",
+          "accountId": "****",
+          "accountName": "Joe Car Hire",
+          "requestee": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+          "requestor": "86c8644c-d74e-495b-afe9-7eaff234bea9",
+          "requesteeEmail": "sam@jrn-limited.com",
+          "requestorEmail": "sam@jrn-limited.com",
+          "requestType": "grantRepoAccess",
+          "requestedOnResource": "****",
+          "requestedOnResourceName": "My Repo 1",
+          "status": "pending",
+          "createdAt": "****",
+          "updateHistory": []
+        }
+      ]
+      """
+    Examples:
+      | requestType        |
+      | grantRepoAccess    |
+
   Scenario Outline: Member users who is not already a approver|user tries to submit leaveAsRepoApprover|removeRepoAccess request
     Given backend app is setup
     And i am logged in as joe@jrn-limited.com

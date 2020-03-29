@@ -7,6 +7,14 @@ phases:
   install:
     commands:
       - apt-get update
+      # Install elastic search
+      - apt-get install wget -y
+      - apt-get install gnupg2 -y
+      - wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.4.2-amd64.deb
+      - wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.4.2-amd64.deb.sha512
+      - sha512sum -c elasticsearch-7.4.2-amd64.deb.sha512
+      - dpkg -i elasticsearch-7.4.2-amd64.deb
+      # Install serverless and related plugins
       - npm install --silent --no-progress -g npm
       - npm install --silent --no-progress -g serverless@1.63.0
       - serverless plugin install -n serverless-python-requirements
@@ -23,15 +31,9 @@ phases:
   build:
     commands:
       - sls dynamodb install
-      - nohup serverless offline start --stage test & echo $! > pidfile1
-      - nohup moto_server s3 -p4500 & echo $! > pidfile2
-      - nohup python requestProcessRunner.py & echo $! > pidfile3
-      - tail -n 1000 -F nohup.out & echo $! > pidfile4
+      - ./runTestSetup.sh
       - behave test-integration/features/
-      - kill -9 $(cat pidfile1)
-      - kill $(cat pidfile2)
-      - kill $(cat pidfile3)
-      - kill $(cat pidfile4)
+      - ./runTestCleanup.sh
       - mkdir -p target/dev
       - mkdir target/qa
       - serverless package --package target/dev --stage dev -v -r eu-west-1

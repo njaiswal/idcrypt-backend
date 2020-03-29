@@ -1,4 +1,3 @@
-import logging
 from typing import List
 from flask import request
 from flask_accepts import responds
@@ -6,9 +5,11 @@ from flask_restplus import Namespace, Resource
 from .. import accountsService, idp
 from ..account.model import Account
 from ..account.schema import AccountSchema
+from ..shared import getLogger
 from ..utils import get_cognito_user
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
+
 
 api = Namespace(
     name='accounts',

@@ -1,22 +1,18 @@
 import json
-import logging
 import os
 from datetime import datetime
 from typing import Optional
 
+from app import DocService
 from app.database.db import DB
 from app.requests.model import AppRequest, UpdateAppRequest, UpdateHistory, RequestType
 from app.requests.service import RequestService
 from app.repos.service import RepoService
 from app.account.service import AccountService
 from app.config import config_by_name
+from app.shared import getLogger
 
-logger = logging.getLogger(__name__)
-formatter = logging.Formatter('%(asctime)s,%(msecs)d %(levelname)-8s [%(name)s:%(lineno)d] %(message)s')
-ch = logging.StreamHandler()
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-logger.setLevel(logging.DEBUG)
+logger = getLogger(__name__)
 
 # Get shared config by env
 env = os.getenv('ENV', 'test')
@@ -35,6 +31,9 @@ accountService.init(db, 'Accounts-{}'.format(env))
 
 repoService: RepoService = RepoService()
 repoService.init(db, 'Repos-{}'.format(env))
+
+docService: DocService = DocService()
+docService.init(db, 'Docs-{}'.format(env))
 
 
 def handler(event, context):
@@ -86,7 +85,8 @@ def handler(event, context):
         if appRequest.requestType not in [
             RequestType.joinAccount.value,
             RequestType.joinAsRepoApprover.value, RequestType.leaveAsRepoApprover.value,
-            RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value
+            RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value,
+            RequestType.grantDocAccess.value
         ]:
             logger.error(
                 'Event processor does not know how to handle requests of type: {}'.format(appRequest.requestType))
@@ -112,17 +112,27 @@ def handler(event, context):
             if appRequest.requestType == RequestType.removeRepoAccess.value:
                 repoService.remove_user(appRequest.accountId, appRequest.requestedOnResource, appRequest.requestee)
 
+            if appRequest.requestType == RequestType.grantDocAccess.value:
+                parts = appRequest.requestedOnResource.split('#')
+                if len(parts) != 2:
+                    logger.error('Malformed requestedOnResource for request of type grantDocAccess: {}'.format(
+                        appRequest.requestedOnResource)
+                    )
+                    raise Exception('Malformed requestedOnResource')
+                docService.add_downloadableBy(parts[0], parts[1], appRequest.requestee)
+
             # Mark the request as closed since necessary action has been taken
             logger.info('Successfully actioned request of type: {}'.format(appRequest.requestType))
             markRequestStatus(appRequest.requestId, appRequest.accountId, 'closed')
             successfullyProcessedRecords = successfullyProcessedRecords + 1
 
         except Exception as exception:
-            logger.error(exception)
+            logger.error("Error processing Record event: " + json.dumps(record, indent=4, sort_keys=True, default=str))
+            logger.exception('Ignoring exception and marking request as failed')
             failedToProcessRecords = failedToProcessRecords + 1
             markRequestStatus(appRequest.requestId, appRequest.accountId, 'failed')
 
-    logger.info('********** Processed:={}, success={}, failure={}, ignored={}'.format(
+    logger.info('********** Processed={}, success={}, failure={}, ignored={}'.format(
         len(event['Records']),
         successfullyProcessedRecords,
         failedToProcessRecords,
@@ -152,5 +162,7 @@ def convertRecordToRequestObj(record) -> Optional[AppRequest]:
     appRequest: AppRequest = requestService.get_by_primaryKeys(accountId, requestId)
     if appRequest is not None:
         return appRequest
-    logger.error('Could not fetch request with accountId:{}, requestId:{} from db. It might have been deleted.'.format(accountId, requestId))
+    logger.error(
+        'Could not fetch request with accountId:{}, requestId:{} from db. It might have been deleted.'.format(accountId,
+                                                                                                              requestId))
     return None

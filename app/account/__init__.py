@@ -1,9 +1,5 @@
-import logging
-
 BASE_ROUTE = "account"
 PARTITION_KEY = "accountId"
-
-logger = logging.getLogger(__name__)
 
 
 def register_routes(api):

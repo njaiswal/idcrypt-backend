@@ -1,0 +1,23 @@
+Resources:
+  DocSearch:
+    Type: "AWS::Elasticsearch::Domain"
+    Properties:
+      ElasticsearchVersion: "7.4"
+      DomainName: idcrypt-${self:provider.stage}
+      ElasticsearchClusterConfig:
+        DedicatedMasterEnabled: false
+        InstanceCount: "1"
+        ZoneAwarenessEnabled: false
+        InstanceType: "t2.small.elasticsearch"
+      EncryptionAtRestOptions:
+        Enabled: false
+      NodeToNodeEncryptionOptions:
+        Enabled: false
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: 0
+      #          VPCOptions: xxx
+      EBSOptions:
+        EBSEnabled: true
+        Iops: 0
+        VolumeSize: 10
+        VolumeType: "gp2"

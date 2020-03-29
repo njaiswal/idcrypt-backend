@@ -1,0 +1,27 @@
+Resources:
+  DocSearch:
+    Type: "AWS::Elasticsearch::Domain"
+    Properties:
+      ElasticsearchVersion: "7.4"
+      DomainName: idcrypt-prod
+      ElasticsearchClusterConfig:
+        DedicatedMasterEnabled: true
+        DedicatedMasterCount: "3"
+        DedicatedMasterType: "m5.large.elasticsearch"
+        InstanceCount: 2
+        ZoneAwarenessEnabled: true
+        ZoneAwarenessConfig:
+          AvailabilityZoneCount: 2
+        InstanceType: "m5.large.elasticsearch"
+      EncryptionAtRestOptions:
+        Enabled: true
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: 0
+      #          VPCOptions: xxx
+      EBSOptions:
+        EBSEnabled: true
+        Iops: 0
+        VolumeSize: 10
+        VolumeType: "gp2"

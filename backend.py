@@ -55,7 +55,12 @@ def after(response):
     try:
         logger.info('Response Status:'.ljust(25) + response.status)
         logger.info('Response Headers:'.ljust(25) + " # ".join(headers_to_log))
-        logger.info('Response Body:'.ljust(25) + str(response.get_data()))
+
+        responseBody = json.loads(response.get_data())
+        if 'base64Content' in responseBody:
+            responseBody['base64Content'] = '***redacted***'
+
+        logger.info('Response Body:'.ljust(25) + str(json.dumps(responseBody, default=str)))
     except Exception as e:
         logger.error('Could not log response due to exception: {}'.format(e))
     return response

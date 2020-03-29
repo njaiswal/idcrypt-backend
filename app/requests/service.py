@@ -1,4 +1,3 @@
-import logging
 from typing import Optional, List
 from boto3.dynamodb.conditions import Key
 from .model import NewAppRequest, AppRequest, UpdateAppRequest, UpdateHistory
@@ -6,6 +5,7 @@ from .schema import AppRequestSchema, UpdateHistorySchema
 from app.database.db import DB
 from ..cognito.cognitoUser import CognitoUser
 from ..database.db import assert_dynamodb_response
+from ..shared import getLogger
 
 
 class RequestService:
@@ -18,7 +18,7 @@ class RequestService:
         self.db = db
         self.table_name = table_name
         self.table = db.dynamodb_resource.Table(self.table_name)
-        self.logger = logging.getLogger(__name__)
+        self.logger = getLogger(__name__)
 
     def get_by_accountId(self, accountId: str, status: str = None):
         """ Returns all requests for a accountID of a particular status if status is present
@@ -87,8 +87,9 @@ class RequestService:
     def create(self, cognito_user: CognitoUser, new_request: NewAppRequest) -> AppRequest:
         from app import repoService
         from app import accountService
+        from app import docService
         from app import idp
-        self.logger.debug('create called')
+        self.logger.debug('create request called')
 
         requesteeSub = None
         if new_request.requesteeEmail is not None:
@@ -104,6 +105,7 @@ class RequestService:
                               }
         accountService.hydrate_request(request_attr)
         repoService.hydrate_request(request_attr)
+        docService.hydrate_request(request_attr)
         # CognitoService.hydrate_request(request_attr)
 
         newAppRequest = AppRequest(**request_attr)

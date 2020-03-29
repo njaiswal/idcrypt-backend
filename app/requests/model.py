@@ -75,3 +75,4 @@ class RequestType(Enum):
     leaveAsRepoApprover = 'leaveAsRepoApprover'
     grantRepoAccess = 'grantRepoAccess'
     removeRepoAccess = 'removeRepoAccess'
+    grantDocAccess = 'grantDocAccess'

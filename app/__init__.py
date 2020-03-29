@@ -4,6 +4,9 @@ from webargs.flaskparser import parser
 from app.cognito.idp import IDP
 from app.database.db import DB
 from flask_cors import CORS
+
+from app.docs.service import DocService
+from app.elasticSearch.es import ES
 from app.repos.service import RepoService
 from app.requests.service import RequestService
 from app.account.service import AccountService
@@ -17,6 +20,8 @@ accountService: AccountService = AccountService()
 accountsService: AccountsService = AccountsService()
 requestService: RequestService = RequestService()
 repoService: RepoService = RepoService()
+docService: DocService = DocService()
+es = ES()
 
 
 def create_app(version="v1.0", env=None):
@@ -44,19 +49,23 @@ def create_app(version="v1.0", env=None):
     app.config.from_object(config_by_name[env or "test"])
 
     # Initialize IDP for Admin queries
-    idp.init(app)
+    idp.init(app.config.get('REGION_NAME'), app.config.get('IDP_ENDPOINT_URL'), app.config.get('COGNITO_USERPOOL_ID'))
 
     # Initialize DB
     db.init(app.config.get('REGION_NAME'), app.config.get('DYNAMODB_ENDPOINT_URL'))
 
     # Initialize S3
-    s3.init(app)
+    s3.init(app.config.get('REGION_NAME'), app.config.get('S3_ENDPOINT_URL'), app.config.get('LOGGING_BUCKET_NAME'))
 
     # Initialize services
     accountService.init(db, 'Accounts-{}'.format(env))
     accountsService.init(db, 'Accounts-{}'.format(env))
     requestService.init(db, 'Requests-{}'.format(env))
     repoService.init(db, 'Repos-{}'.format(env))
+    docService.init(db, 'Docs-{}'.format(env))
+
+    # Initialize ES client
+    es.init(app.config.get('ES_ENDPOINT_URL'), accountService, repoService, idp)
 
     # Register routes
     register_routes(api)

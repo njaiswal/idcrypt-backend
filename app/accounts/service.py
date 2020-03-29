@@ -1,4 +1,3 @@
-import logging
 import json
 from typing import List, Optional
 from boto3.dynamodb.conditions import Key
@@ -6,6 +5,7 @@ from ..database.db import DB
 from ..account import PARTITION_KEY
 from ..account.model import Account
 from ..database.db import assert_dynamodb_response
+from ..shared import getLogger
 
 
 class AccountsService:
@@ -18,7 +18,7 @@ class AccountsService:
         self.db = db
         self.table_name = table_name
         self.table = db.dynamodb_resource.Table(self.table_name)
-        self.logger = logging.getLogger(__name__)
+        self.logger = getLogger(__name__)
 
     def get_by_id(self, accountId: str) -> Optional[Account]:
         resp = self.table.get_item(

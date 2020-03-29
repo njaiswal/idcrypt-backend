@@ -20,6 +20,9 @@ deepdiff==4.2.0
 docker==4.2.0
 docutils==0.15.2
 ecdsa==0.15
+elasticsearch==7.5.1
+elasticsearch-dsl==7.1.0
+filetype==1.0.6
 Flask==1.1.1
 flask-accepts==0.16.0
 Flask-Cors==3.0.8

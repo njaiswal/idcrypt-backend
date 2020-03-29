@@ -1,0 +1,38 @@
+{
+  "Records": [
+    {
+      "awsRegion": "eu-west-1",
+      "eventName": "ObjectCreated:Put",
+      "eventSource": "aws:s3",
+      "eventTime": "2020-03-10T10:12:41.620Z",
+      "eventVersion": "2.1",
+      "requestParameters": {
+        "sourceIPAddress": "81.2.165.145"
+      },
+      "responseElements": {
+        "x-amz-id-2": "SOpRzZLI0Ps3GupTSty+xszj+mv+SJ9/lV/WiOTEmEwIkSzcvsK085GRMypSCNQt1O1lCm4uaRqB3uNIkVSmFqqqsBNlHRWa",
+        "x-amz-request-id": "37FFE731775C564A"
+      },
+      "s3": {
+        "bucket": {
+          "arn": "arn:aws:s3:::{{s3ObjectSummary.bucket_name}}",
+          "name": "{{s3ObjectSummary.bucket_name}}",
+          "ownerIdentity": {
+            "principalId": "A13U3UYYX56Z0A"
+          }
+        },
+        "configurationId": "1f1ef488-f4d8-407c-a94f-c86e3c26a0b1",
+        "object": {
+          "eTag": {{ s3ObjectSummary.e_tag }},
+          "key": "{{ s3ObjectSummary.key }}",
+          "sequencer": "005E67681C11ECC94C",
+          "size": {{s3ObjectSummary.size}}
+        },
+        "s3SchemaVersion": "1.0"
+      },
+      "userIdentity": {
+        "principalId": "AWS:AIDA3BLSEEPYTZJL7NTI5"
+      }
+    }
+  ]
+}

@@ -39,7 +39,8 @@ class AppRequestSchema(Schema):
                                                          'joinAccount', 'leaveAccount',
                                                          'joinAsAccountAdmin', 'leaveAsAccountAdmin',
                                                          'joinAsRepoApprover', 'leaveAsRepoApprover',
-                                                         'grantRepoAccess', 'removeRepoAccess']))
+                                                         'grantRepoAccess', 'removeRepoAccess',
+                                                         'grantDocAccess']))
     requestedOnResource = fields.String(attribute="requestedOnResource", required=True)
     requestedOnResourceName = fields.String(attribute="requestedOnResourceName", required=True)
     status = fields.String(attribute="status",
@@ -79,7 +80,8 @@ class NewAppRequestSchema(Schema):
                                 validate=validate.OneOf([
                                     RequestType.joinAccount.value, RequestType.leaveAccount.value,
                                     RequestType.joinAsRepoApprover.value, RequestType.leaveAsRepoApprover.value,
-                                    RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value
+                                    RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value,
+                                    RequestType.grantDocAccess.value
                                 ]))
     requestedOnResource = fields.String(attribute="requestedOnResource", required=True)
 

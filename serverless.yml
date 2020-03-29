@@ -24,10 +24,28 @@ service: idcrypt-backend
 #  - Run 'sls create_domain' with --stage ENV
 #    Wait 20-30 mins for domain to be active
 custom:
+  search:
+    test:
+      es-infra-filename: es-nonprod.yml
+    dev:
+      es-infra-filename: es-nonprod.yml
+    qa:
+      es-infra-filename: es-nonprod.yml
+    uat:
+      es-infra-filename: es-nonprod.yml
+    prod:
+      es-infra-filename: es-prod.yml
+  s3UploadBucketName:
+    test: idcrypt-document-uploads172024-test
+    dev: idcrypt-document-uploads172024-dev
+    qa: xxx
+    uat: xxxx
+    prod: xxx
   tableName:
     accounts: 'Accounts-${self:provider.stage}'
     requests: 'Requests-${self:provider.stage}'
     repos: 'Repos-${self:provider.stage}'
+    docs: 'Docs-${self:provider.stage}'
   customDomain:
     domainName: ${self:provider.stage}.api.idcrypt.io
     basePath: ''
@@ -101,6 +119,7 @@ provider:
         - { "Fn::GetAtt": ["AccountsDynamoDBTable", "Arn" ] }
         - { "Fn::GetAtt": ["RequestsDynamoDBTable", "Arn" ] }
         - { "Fn::GetAtt": ["ReposDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["DocsDynamoDBTable", "Arn" ] }
     - Effect: Allow
       Action:
         - dynamodb:ListTables
@@ -122,13 +141,22 @@ provider:
         - s3:PutObject
       Resource:
         - ${self:custom.arns.${self:provider.stage}.s3Arn}
+    - Effect: Allow
+      Action:
+        - es:ESHttpPost
+        - es:ESHttpPut
+        - es:ESHttpDelete
+        - es:ESHttpGet
+      Resource:
+        - { "Fn::GetAtt": ["DocSearch", "DomainArn"] }
+        - { "Fn::Join": ["", ["Fn::GetAtt": ["DocSearch", "DomainArn"], "/*"]] }
 
 
   environment:
     STAGE: ${opt:stage}
 
 functions:
-  idcryptBackend:
+  Backend:
     environment:
       ENV: ${opt:stage, 'dev'}
     handler: wsgi_handler.handler
@@ -147,10 +175,10 @@ functions:
             name: authorizer
             arn: ${self:custom.arns.${self:provider.stage}.userPoolArn}
           cors: true
-  idcryptEventProcessor:
+  RequestProcessor:
     environment:
       ENV: ${opt:stage, 'dev'}
-    handler: requestProcessor.handler
+    handler: triggers/requestProcessor.handler
     events:
       - stream:
           type: dynamodb
@@ -158,162 +186,45 @@ functions:
             Fn::GetAtt: [ RequestsDynamoDBTable, StreamArn ]
           batchSize: 1
           startingPosition: LATEST
+  UploadsProcessor:
+    environment:
+      ENV: ${opt:stage, 'dev'}
+    handler: triggers/s3UploadsProcessor.handler
+    events:
+      - s3:
+          bucket: ${self:custom.s3UploadBucketName.${self:provider.stage}}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: private/
+          existing: true
+  DocProcessor:
+    environment:
+      ENV: ${opt:stage, 'dev'}
+    handler: triggers/docsProcessor.handler
+    events:
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt: [ DocsDynamoDBTable, StreamArn ]
+          batchSize: 1
+          startingPosition: LATEST
 
 resources:
-  Resources:
-    AccountsDynamoDBTable:
-      Type: 'AWS::DynamoDB::Table'
-      Properties:
-        AttributeDefinitions:
-          - AttributeName: accountId
-            AttributeType: S
-          - AttributeName: name
-            AttributeType: S
-          - AttributeName: domain
-            AttributeType: S
-          - AttributeName: owner
-            AttributeType: S
-        KeySchema:
-          - AttributeName: accountId
-            KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-        TableName: ${self:custom.tableName.accounts}
-        GlobalSecondaryIndexes:
-          - IndexName: AccountNameIndex
-            KeySchema:
-              - AttributeName: name
-                KeyType: HASH
-            Projection:
-              ProjectionType: ALL
-            ProvisionedThroughput:
-              ReadCapacityUnits: 1
-              WriteCapacityUnits: 1
-          - IndexName: AccountDomainIndex
-            KeySchema:
-              - AttributeName: domain
-                KeyType: HASH
-            Projection:
-              ProjectionType: ALL
-            ProvisionedThroughput:
-              ReadCapacityUnits: 1
-              WriteCapacityUnits: 1
-          - IndexName: AccountOwnerIndex
-            KeySchema:
-              - AttributeName: owner
-                KeyType: HASH
-            Projection:
-              ProjectionType: ALL
-            ProvisionedThroughput:
-              ReadCapacityUnits: 1
-              WriteCapacityUnits: 1
-    RequestsDynamoDBTable:
-      Type: 'AWS::DynamoDB::Table'
-      Properties:
-        AttributeDefinitions:
-          - AttributeName: accountId
-            AttributeType: S
-          - AttributeName: requestId
-            AttributeType: S
-          - AttributeName: requestee
-            AttributeType: S
-          - AttributeName: status
-            AttributeType: S
-          - AttributeName: requestType
-            AttributeType: S
-        KeySchema:
-          - AttributeName: accountId
-            KeyType: HASH
-          - AttributeName: requestId
-            KeyType: RANGE
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-        TableName: ${self:custom.tableName.requests}
-        StreamSpecification:
-          StreamViewType: NEW_IMAGE
-        GlobalSecondaryIndexes:
-          - IndexName: RequesteeAndStatusIndex
-            KeySchema:
-              - AttributeName: requestee
-                KeyType: HASH
-              - AttributeName: status
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
-            ProvisionedThroughput:
-              ReadCapacityUnits: 1
-              WriteCapacityUnits: 1
-          - IndexName: AccountIdAndStatusIndex
-            KeySchema:
-              - AttributeName: accountId
-                KeyType: HASH
-              - AttributeName: status
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
-            ProvisionedThroughput:
-              ReadCapacityUnits: 1
-              WriteCapacityUnits: 1
-          - IndexName: RequesteeAndRequestTypeIndex
-            KeySchema:
-              - AttributeName: requestee
-                KeyType: HASH
-              - AttributeName: requestType
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
-            ProvisionedThroughput:
-              ReadCapacityUnits: 1
-              WriteCapacityUnits: 1
-    ReposDynamoDBTable:
-      Type: 'AWS::DynamoDB::Table'
-      Properties:
-        AttributeDefinitions:
-          - AttributeName: accountId
-            AttributeType: S
-          - AttributeName: repoId
-            AttributeType: S
-          - AttributeName: name
-            AttributeType: S
-        KeySchema:
-          - AttributeName: accountId
-            KeyType: HASH
-          - AttributeName: repoId
-            KeyType: RANGE
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-        TableName: ${self:custom.tableName.repos}
-        GlobalSecondaryIndexes:
-          - IndexName: AccountIdAndRepoNameIndex
-            KeySchema:
-              - AttributeName: accountId
-                KeyType: HASH
-              - AttributeName: name
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
-            ProvisionedThroughput:
-              ReadCapacityUnits: 1
-              WriteCapacityUnits: 1
-          - IndexName: AccountIdIndex
-            KeySchema:
-              - AttributeName: accountId
-                KeyType: HASH
-            Projection:
-              ProjectionType: ALL
-            ProvisionedThroughput:
-              ReadCapacityUnits: 1
-              WriteCapacityUnits: 1
+    - ${file(./infra/dynamodb.yml)}
+    - ${file(./infra/${self:custom.search.${self:provider.stage}.es-infra-filename})}
+
 package:
   exclude:
     - .lambda_env/**
     - .dynamodb/**
     - .pytest_cache/**
+    - .idea/**
+    - nohup.out
     - node_modules/**
     - env/**
+    - elasticsearch-7.4.2/**
+    - kibana-7.4.2-darwin-x86_64/**
+    - test-integration/**
 
 plugins:
   - serverless-python-requirements

@@ -1,37 +1,29 @@
 import json
-import logging
 from typing import Optional, List
 
 import boto3
 import botocore
 from botocore.client import BaseClient
-from flask import Flask
 from flask_restplus import abort
 
 from app.account.model import Account
 from app.repos.model import Repo
+from app.shared import getLogger
 
 
 class IDP:
     client: botocore.client = None
-    region = None
-    db_endpoint = None
-    env = None
-    idp_endpoint = None
     userPoolId = None
     cache = dict()
     logger = None
 
-    def init(self, app: Flask):
-        self.idp_endpoint = app.config.get('IDP_ENDPOINT_URL')
-        self.region = app.config.get('REGION_NAME')
-        self.env = app.config.get('CONFIG_NAME')
+    def init(self, region, idp_endpoint, userPoolId):
         self.client = boto3.client('cognito-idp',
-                                   region_name=self.region,
-                                   endpoint_url=self.idp_endpoint
+                                   region_name=region,
+                                   endpoint_url=idp_endpoint
                                    )
-        self.userPoolId = app.config.get('COGNITO_USERPOOL_ID')
-        self.logger = logging.getLogger(__name__)
+        self.userPoolId = userPoolId
+        self.logger = getLogger(__name__)
 
     def hydrateRepos(self, repos: List[Repo]):
         for repo in repos:

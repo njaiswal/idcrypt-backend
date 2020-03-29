@@ -1,8 +1,8 @@
 from flask_restplus import abort
-import logging
 from app.cognito.cognitoUser import CognitoUser
+from app.shared import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 def get_cognito_user(flask_request):

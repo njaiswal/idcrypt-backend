@@ -1,4 +1,3 @@
-import logging
 import json
 from typing import Optional, List
 
@@ -11,6 +10,7 @@ from .schema import AccountSchema
 from ..database.db import DB
 from ..cognito.cognitoUser import CognitoUser
 from ..database.db import assert_dynamodb_response
+from ..shared import getLogger
 
 
 class AccountService:
@@ -23,7 +23,7 @@ class AccountService:
         self.db = db
         self.table_name = table_name
         self.table = db.dynamodb_resource.Table(self.table_name)
-        self.logger = logging.getLogger(__name__)
+        self.logger = getLogger(__name__)
 
     def hydrate_request(self, request_attr: dict):
         if 'accountId' in request_attr:

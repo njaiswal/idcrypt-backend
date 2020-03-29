@@ -1,4 +1,3 @@
-import logging
 import json
 from typing import Optional, List
 from boto3.dynamodb.conditions import Key
@@ -8,6 +7,7 @@ from .schema import RepoSchema
 from app.database.db import DB
 from ..cognito.cognitoUser import CognitoUser
 from ..database.db import assert_dynamodb_response
+from ..shared import getLogger
 
 
 class RepoService:
@@ -20,7 +20,7 @@ class RepoService:
         self.db = db
         self.table_name = table_name
         self.table = db.dynamodb_resource.Table(self.table_name)
-        self.logger = logging.getLogger(__name__)
+        self.logger = getLogger(__name__)
 
     def hydrate_request(self, request_attr: dict):
         if 'requestedOnResource' in request_attr:
@@ -131,6 +131,7 @@ class RepoService:
             Item=new_repo_dict
         )
         self.logger.debug('put_response: {}'.format(json.dumps(put_response, indent=4, sort_keys=True)))
+        assert_dynamodb_response(put_response)
 
         persisted_repo = self.get_by_id(repo.accountId, repo.repoId)
         if persisted_repo is None:

@@ -1,17 +1,20 @@
-import logging
 from typing import List
 from flask_restplus import abort
-from app import accountsService, requestService, repoService, idp
+from app import accountsService, requestService, repoService, idp, docService
 from app.account.model import Account
 from app.cognito.cognitoUser import CognitoUser
+from app.docs.model import Doc
+from app.repos.model import Repo
+from app.requests.authz.sharedRequestAuth import getResourceType
 from app.requests.model import NewAppRequest, AppRequest, RequestType
+from app.shared import getLogger
 
 
 class NewAppRequestAuth:
     def __init__(self, request: NewAppRequest, user: CognitoUser):
         self.request: NewAppRequest = request
         self.user: CognitoUser = user
-        self.logger = logging.getLogger(__name__)
+        self.logger = getLogger(__name__)
         self.requesteeSub = self.user.sub \
             if self.request.requesteeEmail is None \
             else idp.convert_email_to_sub(self.request.requesteeEmail)
@@ -61,42 +64,47 @@ class NewAppRequestAuth:
 
         elif self.request.requestType in [
             RequestType.joinAsRepoApprover.value, RequestType.leaveAsRepoApprover.value,
-            RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value
+            RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value,
+            RequestType.grantDocAccess.value
         ]:
             # Make sure that the user is member of the Account or account Owner
             if self.user.sub not in self.account.members and self.user.sub != self.account.owner:
                 abort(403, 'Only owner and members of account can raise request of type {}'.format(
                     self.request.requestType))
-
         else:
             # Check that user is a member/approver/admin/owner of account based on requestType
             abort(400, 'Checks for {} requestType have not yet implemented.'.format(self.request.requestType))
 
     def __resourceExists(self):
-        resourceType = None
-        if self.request.requestType in [
-            RequestType.joinAccount.value, RequestType.leaveAccount.value
-        ]:
-            resourceType = 'account'
+        self.resourceType = getResourceType(self.request.requestType)
 
-        if self.request.requestType in [
-            RequestType.joinAsRepoApprover.value, RequestType.leaveAsRepoApprover.value,
-            RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value
-        ]:
-            resourceType = 'repo'
-
-        if resourceType is None:
+        if self.resourceType is None:
             abort(400, 'Unrecognized requestType ' + self.request.requestType)
 
         # if resourceType is account just make sure that requestedOnResource == accountId
         # since we already checked accountId exists
-        if resourceType == 'account' and self.request.accountId != self.request.requestedOnResource:
+        if self.resourceType == 'account' and self.request.accountId != self.request.requestedOnResource:
             abort(400, 'Malformed payload. Resource does not belong to accountId')
 
-        if resourceType == 'repo':
+        if self.resourceType == 'repo':
             self.repo = repoService.get_by_id(self.account.accountId, self.request.requestedOnResource)
             if self.repo is None:
                 abort(404, 'Repository not found')
+
+        if self.resourceType == 'doc':
+            parts = self.request.requestedOnResource.split('#')
+            if len(parts) != 2:
+                abort(400, 'Malformed payload')
+            repoId = parts[0]
+            docId = parts[1] or None
+            repo: Repo = repoService.get_by_id(self.account.accountId, repoId)
+            self.repo = repo
+            self.docId = docId
+
+            doc: Doc = docService.get_by_id(self.repo.repoId, self.docId)
+            if doc is None:
+                abort(404, 'Document not found')
+            self.doc = doc
 
     def __checkIfRequestDuplicate(self):
 
@@ -128,10 +136,12 @@ class NewAppRequestAuth:
                     abort(400, message=message)
         elif self.request.requestType in [
             RequestType.joinAsRepoApprover.value, RequestType.leaveAsRepoApprover.value,
-            RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value
+            RequestType.grantRepoAccess.value, RequestType.removeRepoAccess.value,
+            RequestType.grantDocAccess.value
         ]:
             for matching_request in existing_matching_requests:
-                if matching_request.status in ['pending']:
+                if matching_request.status in ['pending'] and \
+                        matching_request.requestedOnResource == self.request.requestedOnResource:
                     message = 'Similar request already exists. Please cancel it to raise a new one.'
                     abort(400, message=message)
                 else:
@@ -151,6 +161,11 @@ class NewAppRequestAuth:
         else:
             if self.requesteeSub not in self.account.members:
                 abort(403, 'Only members of account can be requestee for request of type {}'.format(
+                    self.request.requestType))
+
+        if self.request.requestType in [RequestType.grantDocAccess.value]:
+            if self.user.sub not in self.repo.users and self.user.sub != self.account.owner:
+                abort(403, 'Only owner and users having Repo Access Role can raise request of type {}'.format(
                     self.request.requestType))
 
     def __checkRequestIntegrity(self):

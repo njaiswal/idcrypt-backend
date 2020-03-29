@@ -10,15 +10,15 @@ Feature: User creates new repo
     Then i get response with '<status_code>' and '<message>'
 
     Examples:
-      | payload                                                        | status_code | message                                                                                      |
-      | { "name": null,  "desc": "My Repo 1",  "retention": 30 }       | 400         | {"schema_errors": { "name": ["Field may not be null."]}}                                     |
-      | { "name": "`ls`",  "desc": "My Repo 1",  "retention": 30 }     | 400         | {"schema_errors": { "name": ["Repo name must not contain special characters."]}}             |
-      | { "name": "R1",  "desc": "My Repo 1",  "retention": 30 }       | 400         | {"schema_errors": { "name": ["Length must be between 3 and 30."]}}                           |
-      | { "desc": "My Repo 1",  "retention": 30 }                      | 400         | {"schema_errors": { "name": ["Missing data for required field."]}}                           |
-      | { "name": "My Repo",  "desc": "12",  "retention": 30 }         | 400         | {"schema_errors": { "desc": ["Length must be between 3 and 30."]}}                           |
-      | { "name": "REPO",  "desc": "`ls`",  "retention": 30 }          | 400         | {"schema_errors": { "desc": ["Repo description must not contain special characters."]}}      |
-      | { "name": "REPO",  "desc": "DES",  "retention": 0 }            | 400         | {"schema_errors": { "retention": ["Retention period should be between 1 day and 5 years."]}} |
-      | { "name": "REPO",  "desc": "DES",  "retention": 1, "xx": "y" } | 400         | {"schema_errors": {  "xx": ["Unknown field."]}}                                              |
+      | payload                                                         | status_code | message                                                                                        |
+      | { "name": null,  "desc": "My Repo 1",  "retention": 30 }        | 400         | {"schema_errors": { "name": ["Field may not be null."]}}                                       |
+      | { "name": "`ls`",  "desc": "My Repo 1",  "retention": 30 }      | 400         | {"schema_errors": { "name": ["Repo name must not contain special characters."]}}               |
+      | { "name": "R1",  "desc": "My Repo 1",  "retention": 30 }        | 400         | {"schema_errors": { "name": ["Length must be between 3 and 30."]}}                             |
+      | { "desc": "My Repo 1",  "retention": 30 }                       | 400         | {"schema_errors": { "name": ["Missing data for required field."]}}                             |
+      | { "name": "My Repo",  "desc": "12",  "retention": 30 }          | 400         | {"schema_errors": { "desc": ["Length must be between 3 and 30."]}}                             |
+      | { "name": "REPO",  "desc": "`ls`",  "retention": 30 }           | 400         | {"schema_errors": { "desc": ["Repo description must not contain special characters."]}}        |
+      | { "name": "REPO",  "desc": "DES",  "retention": 0 }             | 400         | {"schema_errors": { "retention": ["Retention period should be between 30 days and 5 years."]}} |
+      | { "name": "REPO",  "desc": "DES",  "retention": 31, "xx": "y" } | 400         | {"schema_errors": {  "xx": ["Unknown field."]}}                                                |
 
   Scenario: New User with no account tries to create a repo
     Given backend app is setup

@@ -12,7 +12,7 @@ class RepoSchema(Schema):
     desc = fields.String(attribute="desc", required=True)
     retention = fields.Integer(attribute="retention", required=True, validate=[
         validate.Range(min=1, max=1825,
-                       error="Retention period of documents in a repository should be between 1 day and 5 years.")
+                       error="Retention period of documents in a repository should be between 30 days and 5 years.")
     ])
     approvers = fields.List(fields.String(attribute="approvers", required=True))
     users = fields.List(fields.String(attribute="requestorEmail", required=True))
@@ -49,8 +49,8 @@ class NewRepoSchema(Schema):
     ])
 
     retention = fields.Integer(attribute="retention", required=True, validate=[
-        validate.Range(min=1, max=1825,
-                       error="Retention period should be between 1 day and 5 years.")
+        validate.Range(min=30, max=1825,
+                       error="Retention period should be between 30 days and 5 years.")
     ])
 
     class Meta:

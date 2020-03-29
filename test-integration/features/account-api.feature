@@ -17,15 +17,15 @@ Feature: As a user I want to use account/ api
     Then i get response with '<status_code>' and '<message>'
 
     Examples:
-      | payload                                                                                   | status_code | message                                                                                                 |
-      | { "name": null, "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}  | 400         | {"schema_errors": { "name": ["Field may not be null."]}}                                                |
-      | { "name": "1=1", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }} | 400         | {"schema_errors": { "name": ["Account name must not contain special characters."]}}                     |
-      | { "name": "x", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}   | 400         | {"schema_errors": { "name": ["Length must be between 3 and 30."]}}                                      |
-      | { "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}                | 400         | {"schema_errors": { "name": ["Missing data for required field."]}}                                      |
-      | { "name": "ABC", "repo": { "name": "x",  "desc": "My Repo 1",  "retention": 30 }}         | 400         | {"schema_errors": { "repo": { "name": ["Length must be between 3 and 30."]}}}                           |
-      | { "name": "ABC", "repo": { "name": "REPO",  "desc": "`ls`",  "retention": 30 }}           | 400         | {"schema_errors": { "repo": { "desc": ["Repo description must not contain special characters."]}}}      |
-      | { "name": "ABC", "repo": { "name": "REPO",  "desc": "DES",  "retention": 0 }}             | 400         | {"schema_errors": { "repo": { "retention": ["Retention period should be between 1 day and 5 years."]}}} |
-      | { "name": "ABC", "repo": { "name": "REPO",  "desc": "DES",  "retention": 1, "xx": "y" }}  | 400         | {"schema_errors": { "repo": { "xx": ["Unknown field."]}}}                                               |
+      | payload                                                                                   | status_code | message                                                                                                   |
+      | { "name": null, "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}  | 400         | {"schema_errors": { "name": ["Field may not be null."]}}                                                  |
+      | { "name": "1=1", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }} | 400         | {"schema_errors": { "name": ["Account name must not contain special characters."]}}                       |
+      | { "name": "x", "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}   | 400         | {"schema_errors": { "name": ["Length must be between 3 and 30."]}}                                        |
+      | { "repo": { "name": "My Repo 1",  "desc": "My Repo 1",  "retention": 30 }}                | 400         | {"schema_errors": { "name": ["Missing data for required field."]}}                                        |
+      | { "name": "ABC", "repo": { "name": "x",  "desc": "My Repo 1",  "retention": 30 }}         | 400         | {"schema_errors": { "repo": { "name": ["Length must be between 3 and 30."]}}}                             |
+      | { "name": "ABC", "repo": { "name": "REPO",  "desc": "`ls`",  "retention": 30 }}           | 400         | {"schema_errors": { "repo": { "desc": ["Repo description must not contain special characters."]}}}        |
+      | { "name": "ABC", "repo": { "name": "REPO",  "desc": "DES",  "retention": 10 }}            | 400         | {"schema_errors": { "repo": { "retention": ["Retention period should be between 30 days and 5 years."]}}} |
+      | { "name": "ABC", "repo": { "name": "REPO",  "desc": "DES",  "retention": 30, "xx": "y" }} | 400         | {"schema_errors": { "repo": { "xx": ["Unknown field."]}}}                                                 |
 
   Scenario: user creates new account
     Given backend app is setup

@@ -1,4 +1,3 @@
-import logging
 from http import HTTPStatus
 from typing import List
 from flask import request
@@ -10,10 +9,11 @@ from .authz.newAccountAuth import NewAccountAuth
 from .model import Account, NewAccount, AccountMember
 from .schema import AccountSchema, NewAccountSchema, AccountMemberSchema
 from ..repos.model import Repo
+from ..shared import getLogger
 from ..utils import get_cognito_user
 from app import s3, accountService, repoService, idp
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 api = Namespace(
     name='account',

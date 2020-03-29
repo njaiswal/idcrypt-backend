@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime
 from typing import List
 from flask import request
@@ -12,9 +11,10 @@ from .model import NewAppRequest, AppRequest, UpdateAppRequest, UpdateHistory
 from .schema import AppRequestSchema, NewAppRequestSchema, UpdateAppRequestSchema
 from app import requestService, accountsService
 from ..account.model import Account
+from ..shared import getLogger
 from ..utils import get_cognito_user
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 api = Namespace(
     name='requests',

@@ -75,7 +75,7 @@ Feature: As a user I want to join/leave a account
       {
         "schema_errors": {
           "requestType": [
-            "Must be one of: joinAccount, leaveAccount, joinAsRepoApprover, leaveAsRepoApprover, grantRepoAccess, removeRepoAccess."
+            "Must be one of: joinAccount, leaveAccount, joinAsRepoApprover, leaveAsRepoApprover, grantRepoAccess, removeRepoAccess, grantDocAccess."
           ]
         }
       }
