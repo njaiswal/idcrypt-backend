@@ -69,7 +69,7 @@ def handler(event, context):
             ignoredRecords = ignoredRecords + 1
             continue
 
-        fileName: str = record['s3']['object']['key']
+        fileName: str = unquote(record['s3']['object']['key'])
         if not fileName.startswith('private/'):
             logger.error('Expecting a s3 filename starting with private/: {}'.format(fileName))
             failedToProcessRecords = failedToProcessRecords + 1
@@ -79,7 +79,7 @@ def handler(event, context):
         if len(fileNameParts) != 5:
             logger.error(
                 'Expecting 5 parts to s3 filename seperated by "/" i.e. {}, instead got: {}'.format(
-                    'LEVEL/COGNITO-IDENTITY/REPOI-D/DOC-ID/DOC-TYPE',
+                    'LEVEL/COGNITO-IDENTITY/REPO-ID/DOC-ID/DOC-TYPE',
                     fileNameParts)
             )
             failedToProcessRecords = failedToProcessRecords + 1
@@ -175,9 +175,8 @@ def extractText(bucketName, fileName) -> Optional[str]:
     newTmpFile, tempFilePath = tempfile.mkstemp()
     blockText: List[str] = []
     try:
-        unquotedFilename = unquote(fileName)
-        logger.info('Going to download bucketName: {}, filename: {}'.format(bucketName, unquotedFilename))
-        s3.resource.Bucket(bucketName).download_file(unquotedFilename, tempFilePath)
+        logger.info('Going to download bucketName: {}, filename: {}'.format(bucketName, fileName))
+        s3.resource.Bucket(bucketName).download_file(fileName, tempFilePath)
         fileBytes = open(tempFilePath, "rb").read()
         resp = textExtract.client.detect_document_text(
             Document={
