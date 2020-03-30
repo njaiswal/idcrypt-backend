@@ -193,6 +193,7 @@ def extractText(bucketName, fileName) -> Optional[str]:
 
     except Exception as exception:
         # Swallow exceptions during text extraction
+        logger.exception('Ignoring text extraction for this document due to exception')
         logger.error('Error during text extraction: {}'.format(exception))
         return ' '.join(blockText)
     finally:

@@ -139,6 +139,9 @@ provider:
         - s3:PutEncryptionConfiguration
         - s3:PutLifecycleConfiguration
         - s3:PutObject
+        - s3:ListBucket
+        - s3:DeleteObject
+        - s3:GetObject
       Resource:
         - ${self:custom.arns.${self:provider.stage}.s3Arn}
     - Effect: Allow
