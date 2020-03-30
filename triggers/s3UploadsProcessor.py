@@ -193,7 +193,6 @@ def extractText(bucketName, fileName) -> Optional[str]:
 
     except Exception as exception:
         # Swallow exceptions during text extraction
-        # TODO: We still want the doc to be searchable by name of person. This needs UI to include name for all docs uploaded
         logger.error('Error during text extraction: {}'.format(exception))
         return ' '.join(blockText)
     finally:

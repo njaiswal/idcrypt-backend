@@ -52,6 +52,8 @@ def handler(event, context):
     errorsEncountered = []
 
     for record in event['Records']:
+        docId = None
+        repoId = None
         try:
             if record['eventName'] in ['REMOVE']:
                 logger.info('Ignoring REMOVE event')
@@ -92,6 +94,11 @@ def handler(event, context):
             logger.error("Error processing Record event: " + json.dumps(record, indent=4, sort_keys=True, default=str))
             logger.exception('Ignoring exception...')
             failedToProcessRecords = failedToProcessRecords + 1
+            try:
+                if repoId is not None and docId is not None:
+                    docService.update(repoId, docId, 'status', DocStatus.failed.value)
+            except:
+                logger.exception('Ignoring exception while updating doc status...')
 
     logger.info('********** Processed={}, success={}, failure={}, ignored={}'.format(
         len(event['Records']),

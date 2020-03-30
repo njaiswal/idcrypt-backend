@@ -25,9 +25,21 @@ class ES:
     idp: IDP = None
 
     def init(self, region: str, es_endpoint: str, accountService: AccountService, repoService: RepoService, idp: IDP):
+        self.logger = getLogger(__name__)
+
         service = 'es'
-        session = boto3.Session()
+        session = boto3.session.Session()
         credentials = session.get_credentials()
+
+        self.logger.info('ES Region: {}, ES Endpoint: {}'.format(region, es_endpoint))
+        self.logger.info('credentials.access_key = {} chars, credentials.secret_key = {}'.format(
+            len(credentials.access_key),
+            len(credentials.secret_key))
+        )
+
+        self.logger.info('credentials.token = {} chars'.format(
+            0 if credentials.token is None else len(credentials.token))
+        )
 
         awsauth = AWS4Auth(credentials.access_key,
                            credentials.secret_key,
@@ -47,7 +59,6 @@ class ES:
             timeout=20
         )
 
-        self.logger = getLogger(__name__)
         self.accountService = accountService
         self.repoService = repoService
         self.idp = idp

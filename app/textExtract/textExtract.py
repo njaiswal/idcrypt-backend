@@ -31,8 +31,9 @@ class TextExtract:
             raise Exception('Textract response HTTPStatusCode is not 200.')
 
     def init(self, region: str, textExtract_endpoint: str):
+        self.logger = getLogger(__name__)
+        self.logger.info('Textract Region: {}, Endpoint: {}'.format(region, textExtract_endpoint))
         self.client = boto3.client('textract',
                                    region_name=region,
                                    endpoint_url=textExtract_endpoint
                                    )
-        self.logger = getLogger(__name__)
