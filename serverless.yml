@@ -204,7 +204,7 @@ functions:
   DocProcessor:
     environment:
       ENV: ${opt:stage, 'dev'}
-    handler: triggers/docsProcessor.handler
+    handler: triggers/docProcessor.handler
     events:
       - stream:
           type: dynamodb
