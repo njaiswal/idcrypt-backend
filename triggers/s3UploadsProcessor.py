@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 from typing import Optional, List
+from urllib.parse import unquote
 
 from app import DocService
 from app.account.model import Account
@@ -145,7 +146,8 @@ def handler(event, context):
             docService.update(repoId, docId, 'status', DocStatus.successfullyProcessed.value)
             successfullyProcessedRecords = successfullyProcessedRecords + 1
         except Exception as exception:
-            logger.error(exception)
+            logger.exception('Exception. Marking document status failed')
+            logger.error("Error processing Record event: " + json.dumps(record, indent=4, sort_keys=True, default=str))
             failedToProcessRecords = failedToProcessRecords + 1
             docService.update(repoId, docId, 'status', DocStatus.failed.value)
             docService.update(repoId, docId, 'errorMessage', type(exception).__name__)
@@ -173,7 +175,9 @@ def extractText(bucketName, fileName) -> Optional[str]:
     newTmpFile, tempFilePath = tempfile.mkstemp()
     blockText: List[str] = []
     try:
-        s3.resource.Bucket(bucketName).download_file(fileName, tempFilePath)
+        unquotedFilename = unquote(fileName)
+        logger.info('Going to download bucketName: {}, filename: {}'.format(bucketName, unquotedFilename))
+        s3.resource.Bucket(bucketName).download_file(unquotedFilename, tempFilePath)
         fileBytes = open(tempFilePath, "rb").read()
         resp = textExtract.client.detect_document_text(
             Document={
@@ -195,6 +199,7 @@ def extractText(bucketName, fileName) -> Optional[str]:
         # Swallow exceptions during text extraction
         logger.exception('Ignoring text extraction for this document due to exception')
         logger.error('Error during text extraction: {}'.format(exception))
+        blockText.append('Error-during-text-extraction')
         return ' '.join(blockText)
     finally:
         os.remove(tempFilePath)
