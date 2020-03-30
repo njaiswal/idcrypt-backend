@@ -1,9 +1,12 @@
 import json
 from typing import List
 
+import boto3
+from elasticsearch import RequestsHttpConnection
 from elasticsearch_dsl import Index, Search, Q
 from elasticsearch_dsl.connections import connections
 from elasticsearch_dsl.response import Response, Hit
+from requests_aws4auth import AWS4Auth
 
 from app.account.service import AccountService
 from app.cognito.cognitoUser import CognitoUser
@@ -21,9 +24,29 @@ class ES:
     repoService: RepoService = None
     idp: IDP = None
 
-    def init(self, es_endpoint: str, accountService: AccountService, repoService: RepoService, idp: IDP):
+    def init(self, region: str, es_endpoint: str, accountService: AccountService, repoService: RepoService, idp: IDP):
+        service = 'es'
+        session = boto3.Session()
+        credentials = session.get_credentials()
+
+        awsauth = AWS4Auth(credentials.access_key,
+                           credentials.secret_key,
+                           region,
+                           service,
+                           session_token=credentials.token
+                           )
+
+        use_ssl = True if es_endpoint.startswith('https') else False
+
         # Create default connection
-        connections.create_connection(hosts=[es_endpoint], timeout=20)
+        connections.create_connection(
+            hosts=[es_endpoint],
+            http_auth=awsauth,
+            use_ssl=use_ssl,
+            connection_class=RequestsHttpConnection,
+            timeout=20
+        )
+
         self.logger = getLogger(__name__)
         self.accountService = accountService
         self.repoService = repoService

@@ -38,7 +38,7 @@ idp = IDP()
 idp.init(config.REGION_NAME, config.IDP_ENDPOINT_URL, config.COGNITO_USERPOOL_ID)
 
 es = ES()
-es.init(config.ES_ENDPOINT_URL, accountService, repoService, idp)
+es.init(config.REGION_NAME, config.ES_ENDPOINT_URL, accountService, repoService, idp)
 
 
 def handler(event, context):

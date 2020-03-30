@@ -65,7 +65,7 @@ def create_app(version="v1.0", env=None):
     docService.init(db, 'Docs-{}'.format(env))
 
     # Initialize ES client
-    es.init(app.config.get('ES_ENDPOINT_URL'), accountService, repoService, idp)
+    es.init(app.config.get('REGION_NAME'), app.config.get('ES_ENDPOINT_URL'), accountService, repoService, idp)
 
     # Register routes
     register_routes(api)
