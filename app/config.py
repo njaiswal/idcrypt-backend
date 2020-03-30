@@ -16,7 +16,7 @@ class DevelopmentConfig(BaseConfig):
     S3_ENDPOINT_URL = "https://s3.eu-west-1.amazonaws.com"
     IDP_ENDPOINT_URL = "https://cognito-idp.eu-west-1.amazonaws.com"
     TEXT_EXTRACT_URL = "https://textract.eu-west-1.amazonaws.com"
-    ES_ENDPOINT_URL = "https://search-idcrypt-nonprod-l7cxk7u5bt4ukpcqmdfl5indq4.eu-west-1.es.amazonaws.com"
+    ES_ENDPOINT_URL = "https://search-idcrypt-dev-czxbeuummnivrvmdjmpfknnz5y.eu-west-1.es.amazonaws.com"
     REGION_NAME = "eu-west-1"
     COGNITO_USERPOOL_ID = 'eu-west-1_R8z2Oswjr'
     LOGGING_BUCKET_NAME = 'idcrypt-s3-access-logs'

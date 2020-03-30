@@ -418,7 +418,7 @@ def response_status_code_and_headers(context, code):
         header_dict[header[0]] = header[1]
 
     expected_json: dict = json.loads(context.text)
-    logger.info('OPTIONS returned headers: {}'.format(json.dumps(header_dict, indent=4, sort_keys=True)))
+    logger.info('returned headers: {}'.format(json.dumps(header_dict, indent=4, sort_keys=True)))
     ddiff = DeepDiff(header_dict, expected_json, ignore_order=True, exclude_paths="root['Allow']")
     pprint.pprint(ddiff, indent=4)
     assert not ddiff
