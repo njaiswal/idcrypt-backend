@@ -3,8 +3,10 @@ import json
 import logging
 import os
 import pprint
+import random
 import time
 import uuid
+from random import randint
 
 from behave import given, when, then, step
 from boto3.dynamodb.conditions import Key
@@ -13,7 +15,7 @@ from flask import Response
 from hamcrest import *
 from app import db, s3, requestService, accountService, docService
 from app.database.db import assert_dynamodb_response
-from app.docs.model import Doc
+from app.docs.model import Doc, DocType, DocStatus
 
 base_url = '/api/v1.0'
 
@@ -66,6 +68,7 @@ def download_doc(context, accountId, repoId, docId):
 
     get(context,
         '/docs/download?accountId={}&repoId={}&docId={}'.format(effective_accountId, effective_repoId, effective_docId))
+
 
 @step(u'i GET "{uri}"')
 def get(context, uri):
@@ -135,6 +138,69 @@ def upload_doc(context, fileName, repoId, docId, docType):
     s3UploadDoc(context, fileName, repoId, docId, docType)
 
 
+@step("i upload {n:d} documents")
+def submitManyDocs(context, n):
+    docTypes = [DocType.passport.value, DocType.drivingLicence.value, DocType.drivingLicence.value,
+                DocType.nationalIdCard.value, DocType.bankStatement.value, DocType.other.value]
+    first_names = (
+        'Liam',
+        'Noah',
+        'William',
+        'James',
+        'Oliver',
+        'Benjamin',
+        'Elijah',
+        'Lucas',
+        'Mason',
+        'Logan',
+        'Alexander',
+        'Ethan',
+        'Jacob',
+        'Michael',
+        'Daniel',
+        'Henry',
+        'Jackson',
+        'Sebastian',
+        'Aiden',
+        'Matthew'
+    )
+
+
+    last_names = (
+        'Holmes',
+        'Reed',
+        'Cummings',
+        'Hunt',
+        'Hardy',
+        'Bowen',
+        'Chang',
+        'Gallagher',
+        'Hart',
+        'Ray',
+        'Duncan',
+        'Baird',
+        'Robertson',
+        'Singh',
+        'Gardiner',
+        'Nelson',
+        'Hanson',
+        'Francis',
+        'Rice',
+        'Payne',
+    )
+
+    for i in range(0, n):
+        name = random.choice(first_names) + ' ' + random.choice(last_names)
+        submit_create_doc(context, 'JRN Main Account', 'UK KYC', name)
+        response_status_code(context, 200)
+
+        fileName = 'test-integration/random_images/{}.jpeg'.format(randint(10, 30))
+        docType = docTypes[randint(0, 5)]
+
+        upload_doc(context, fileName, 'saved_repoId', 'saved_docId', docType)
+        wait_for_doc_status(context, DocStatus.beingProcessed.value)
+
+
 @step(
     u"i submit create doc request with for account with name '{accountName}' and repo with name '{repoName}' and customer name '{name}'")
 def submit_create_doc(context, accountName, repoName, name):
@@ -151,23 +217,29 @@ def submit_create_doc(context, accountName, repoName, name):
     submit_create_resource(context, 'doc', json.dumps(payload))
 
 
-@step(u"i query downloadable docs for account name '{accountName}' and repo name '{repoName}' and '{text}'")
-def query_downloadable_docs_by_account_repo_name(context, accountName, repoName, text):
-    query_docs(context, accountName, repoName, text, downloadable=True)
+@step(u"i wait for {n:d} seconds")
+def sleep(context, n):
+    time.sleep(n)
 
 
-@step(u"i query docs for account name '{accountName}' and repo name '{repoName}' and '{text}'")
-def query_docs_by_account_repo_name(context, accountName, repoName, text):
-    query_docs(context, accountName, repoName, text)
+@step(
+    u"i query downloadable docs for account name '{accountName}' and repo name '{repoName}' and name='{name}' and text='{text}'")
+def query_downloadable_docs_by_account_repo_name(context, accountName, repoName, name, text):
+    query_docs(context, accountName, repoName, name, text, downloadable=True)
 
 
-def query_docs(context, accountName, repoName, text, downloadable=None):
-    time.sleep(2.0)
+@step(u"i query docs for account name '{accountName}' and repo name '{repoName}' and name='{name}' and text='{text}'")
+def query_docs_by_account_repo_name(context, accountName, repoName, name, text):
+    query_docs(context, accountName, repoName, name, text)
+
+
+def query_docs(context, accountName, repoName, name, text, downloadable=None):
     accountId = get_account_by_name(accountName)['accountId']
     repoId = get_repo_by_name(accountId, repoName)['repoId']
-    get(context, '/docs/?accountId={}&repoId={}{}{}'.format(
+    get(context, '/docs/?accountId={}&repoId={}{}{}{}'.format(
         accountId,
         repoId,
+        '&name={}'.format(name) if name != 'null' else '',
         '&text={}'.format(text) if text != 'null' else '',
         '&downloadable=true'.format(text) if downloadable is not None else ''
     ))
@@ -335,6 +407,7 @@ def docText(context):
     doc: Doc = docService.get_by_id(repoId, docId)
     logger.info('Document text: {}'.format(doc.text))
     assert len(doc.text) > 10
+    time.sleep(2.0)
 
 
 @step(u"i wait for last_created doc to get '{status}'")
@@ -425,7 +498,7 @@ def response_status_code_and_headers(context, code):
 
 
 @then(u'i should get response with status code {code:d} and data')
-def response_status_code(context, code):
+def response_status_code_data(context, code):
     response: Response = context.response
     assert_that(response.status_code, equal_to(code))
 

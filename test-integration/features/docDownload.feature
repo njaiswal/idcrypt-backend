@@ -68,7 +68,7 @@ Feature: Doc Download
 
     # Capture accountId, repoId and docId
     When i am logged in as joe@jrn-limited.com
-    And i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and 'null'
+    And i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and name='null' and text='null'
     Then i should get response with status code 200
 
     # Sam tries to download doc
@@ -100,7 +100,7 @@ Feature: Doc Download
 
     # Capture accountId, repoId and docId
     When i am logged in as joe@jrn-limited.com
-    And i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and 'null'
+    And i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and name='null' and text='null'
     Then i should get response with status code 200
 
     # Joe tries to download doc
@@ -159,7 +159,7 @@ Feature: Doc Download
     And last_uploaded_file is removed from upload bucket
 
     # Sam searches for the uploaded doc without any text
-    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and 'null'
+    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and name='null' and text='null'
     Then i should get response with status code 200
 
     # Sam raises request to download above document
@@ -174,7 +174,8 @@ Feature: Doc Download
 
     # Sam queries for downloadable documents
     When i am logged in as sam@jrn-limited.com
-    When i query downloadable docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and 'null'
+    And i wait for 2 seconds
+    When i query downloadable docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and name='null' and text='null'
     Then i should get response with status code 200
 
     # Sam tries to download the doc

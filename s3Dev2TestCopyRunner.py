@@ -24,7 +24,7 @@ devS3.init(config.REGION_NAME, config.S3_ENDPOINT_URL, config.LOGGING_BUCKET_NAM
 
 # alreadyProcessed = dict()
 testUploadBucketName = 'idcrypt-document-uploads-test'
-devUploadBucketName = 'idcrypt-document-uploads172024-dev'
+devUploadBucketName = 'idcrypt-document-uploads172024-test'
 
 alreadyProcessed = dict()
 

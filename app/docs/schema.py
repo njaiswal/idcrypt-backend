@@ -39,7 +39,7 @@ class DocSchema(Schema):
     text = fields.String(attribute="text", required=False)
     name = fields.String(attribute="name", required=True, validate=[
         validate.Length(min=3),
-        validate.Regexp('^[a-zA-Z ]+$')
+        validate.Regexp('^[a-zA-Z0-9 ]+$')
     ])
     createdAt = fields.String(attribute="createdAt", required=True)
     errorMessage = fields.String(attribute="errorMessage", required=False)
@@ -108,6 +108,10 @@ class SearchDocSchema(Schema):
         validate.Length(min=3),
         validate.Regexp('^[a-zA-Z0-9 ]+$')
     ])
+    name = fields.String(attribute="name", required=False, validate=[
+        validate.Length(min=3),
+        validate.Regexp('^[a-zA-Z0-9 ]+$')
+    ])
     downloadable = fields.Boolean(attribute="downloadable", required=False)
 
     class Meta:
@@ -115,6 +119,7 @@ class SearchDocSchema(Schema):
             "accountId",
             "repoId",
             "text",
+            "name",
             "downloadable"
         ]
         ordered = True

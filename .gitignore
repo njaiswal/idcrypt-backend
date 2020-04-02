@@ -12,3 +12,5 @@
 /inspect_moto_s3.sh
 /kibana-7.4.2-darwin-x86_64/
 /elasticsearch-7.4.2/
+/kibana-7.4.2-darwin-x86_64.tar.gz
+/test-integration/random_images/

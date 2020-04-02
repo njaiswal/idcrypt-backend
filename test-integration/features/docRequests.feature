@@ -112,7 +112,7 @@ Feature: Doc Download requests
     And last_uploaded_file is removed from upload bucket
 
     # Sam searches for the uploaded doc without any text
-    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and 'null'
+    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and name='null' and text='null'
     Then i should get response with status code 200
 
     # Sam raises request to download above document
@@ -137,7 +137,7 @@ Feature: Doc Download requests
     """
 
     # Sam raises request to download above document again!!!
-    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and 'null'
+    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and name='null' and text='null'
     Then i should get response with status code 200
     When i submit request of requestType: 'grantDocAccess', accountId: 'last_created_accountId', requestedOnResource: 'last_created_repoId#last_created_docId'
     Then i should get response with status code 400 and data
@@ -155,7 +155,7 @@ Feature: Doc Download requests
 
     # Capture docId
     When i am logged in as sam@jrn-limited.com
-    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and 'null'
+    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and name='null' and text='null'
     Then i should get response with status code 200
 
     # kevin (No Repo Access member) raises grantDocAccess Request
@@ -213,7 +213,7 @@ Feature: Doc Download requests
     And last_uploaded_file is removed from upload bucket
 
     # Sam searches for the uploaded doc without any text
-    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and 'null'
+    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and name='null' and text='null'
     Then i should get response with status code 200
 
     # Sam raises request to download above document
@@ -237,7 +237,7 @@ Feature: Doc Download requests
 
     # Sam queries for downloadable documents
     When i am logged in as sam@jrn-limited.com
-    When i query downloadable docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and 'null'
+    When i query downloadable docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and name='null' and text='null'
     Then i should get response with status code 200 and data
     """
     [
@@ -265,7 +265,7 @@ Feature: Doc Download requests
 
     # Sam queries for all documents
     When i am logged in as sam@jrn-limited.com
-    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and 'null'
+    When i query docs for account name 'Joe Car Hire' and repo name 'My Repo 1' and name='null' and text='null'
     Then i should get response with status code 200 and data
     """
     [

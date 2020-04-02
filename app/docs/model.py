@@ -26,11 +26,12 @@ class DownloadDoc(DocPrimaryKeys):
 class SearchDoc(DocPrimaryKeys):
     """Search Doc"""
 
-    def __init__(self, accountId, repoId, text=None, downloadable=None):
+    def __init__(self, accountId, repoId, name=None, text=None, downloadable=None):
         super().__init__(accountId, repoId)
         self.repoId = repoId
         self.accountId = accountId
-        self.text = text
+        self.name = name.strip() if name is not None else name
+        self.text = text.strip() if text is not None else text
         self.downloadable = downloadable
 
 

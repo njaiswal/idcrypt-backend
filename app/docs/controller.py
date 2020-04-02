@@ -42,13 +42,19 @@ class DocResource(Resource):
                 validate.Regexp('^[a-z0-9-]+$')
             ]),
             "text": fields.Str(required=False, location="query", validate=[
-                validate.Length(min=3)
+                validate.Length(min=3),
+                validate.Regexp('^[a-zA-Z0-9- ]+$')
+            ]),
+            "name": fields.Str(required=False, location="query", validate=[
+                validate.Length(min=3),
+                validate.Regexp('^[a-zA-Z0-9- ]+$')
             ]),
             "downloadable": fields.Boolean(required=False, location="query")
         })
     @api.doc(params={'accountId': 'Account ID for document search'})
     @api.doc(params={'repoId': 'Repository ID for document search'})
-    @api.doc(params={'text': 'Text for document search'})
+    @api.doc(params={'text': 'Document Text for document search'})
+    @api.doc(params={'name': 'Name field for document search'})
     @api.doc(params={'downloadable': 'Boolean'})
     @responds(schema=DocSchema(many=True))
     def get(self, args: dict) -> List[Doc]:

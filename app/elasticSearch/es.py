@@ -118,21 +118,32 @@ class ES:
         # Filter results from repoId
         esSearch = esSearch.filter('term', repoId=searchDoc.repoId)
 
-        # Add full text search on document's name and text field
-        if searchDoc.text is not None:
-            query = Q('bool',
-                      should=[
-                          Q("wildcard", name='*{}*'.format(searchDoc.text.lower())),
-                          Q("wildcard", text='*{}*'.format(searchDoc.text.lower()))
-                      ],
-                      minimum_should_match=1
-                      )
+        # Add full text search on document holder's name
+        if searchDoc.name is not None and len(searchDoc.name) > 0:
+            query = Q('bool', must=self.getMultiMatchWildcardQuery(searchDoc.name, 'name'))
+            esSearch = esSearch.query(query)
+
+        # Add full text search on document's field
+        if searchDoc.text is not None and len(searchDoc.text) > 0:
+            query = Q('bool', must=self.getMultiMatchWildcardQuery(searchDoc.text, 'text'))
             esSearch = esSearch.query(query)
 
         if searchDoc.downloadable:
             esSearch = esSearch.filter('term', downloadableBy=user.sub)
 
         return self.execute(esSearch)
+
+    def getMultiMatchWildcardQuery(self, searchWords, attribute) -> List:
+        words = searchWords.split()
+        wildcard_query = []
+        for w in words:
+            if attribute == 'name':
+                wildcard_query.append(Q("wildcard", name='*{}*'.format(w.lower())))
+            elif attribute == 'text':
+                wildcard_query.append(Q("wildcard", text='*{}*'.format(w.lower())))
+            else:
+                raise Exception('Unknown attribute: {}'.format(attribute))
+        return wildcard_query
 
     def dehyrate(self, hit: Hit) -> Doc:
         hitDict: dict = hit.to_dict()
