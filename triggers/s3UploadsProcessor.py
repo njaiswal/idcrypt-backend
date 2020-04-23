@@ -1,8 +1,11 @@
 import json
 import os
 import tempfile
+import time
 from typing import Optional, List
 from urllib.parse import unquote
+
+from filetype import filetype
 
 from app import DocService
 from app.account.model import Account
@@ -70,6 +73,8 @@ def handler(event, context):
             continue
 
         fileName: str = unquote(record['s3']['object']['key'])
+        bucketName = record['s3']['bucket']['name']
+
         if not fileName.startswith('private/'):
             logger.error('Expecting a s3 filename starting with private/: {}'.format(fileName))
             failedToProcessRecords = failedToProcessRecords + 1
@@ -83,6 +88,7 @@ def handler(event, context):
                     fileNameParts)
             )
             failedToProcessRecords = failedToProcessRecords + 1
+            moveFileToErrorBucket(bucketName, fileName)
             continue
 
         level = fileNameParts[0]
@@ -91,16 +97,15 @@ def handler(event, context):
         docId = fileNameParts[3]
         docType = fileNameParts[4]
 
-        bucketName = record['s3']['bucket']['name']
-
-        logger.info('Processing s3 record for bucket:{}, level:{}, cognitoIdentity:{}, repoId:{}, docId:{}, docType:{}'.format(
-            bucketName,
-            level,
-            cognitoIdentity,
-            repoId,
-            docId,
-            docType
-        ))
+        logger.info(
+            'Processing s3 record for bucket:{}, level:{}, cognitoIdentity:{}, repoId:{}, docId:{}, docType:{}'.format(
+                bucketName,
+                level,
+                cognitoIdentity,
+                repoId,
+                docId,
+                docType
+            ))
 
         doc = convertRecordToDoc(repoId, docId)
 
@@ -112,8 +117,8 @@ def handler(event, context):
         # Do not allow re-upload of same docId, this is bad since it breaks the integrity of data
         if doc.status != DocStatus.initialized.value:
             logger.error(
-                'Seems like repoId: {}, docId: {} is being re-uploaded. Stopping this re-upload attempt'.format(
-                    doc.repoId, doc.docId))
+                'Seems like repoId: {}, docId: {}, doc.status: {} is being re-uploaded. Stopping this re-upload attempt'.format(
+                    doc.repoId, doc.docId, doc.status))
             failedToProcessRecords = failedToProcessRecords + 1
             moveFileToErrorBucket(bucketName, fileName)
             continue
@@ -177,33 +182,123 @@ def extractText(bucketName, fileName) -> Optional[str]:
     try:
         logger.info('Going to download bucketName: {}, filename: {}'.format(bucketName, fileName))
         s3.resource.Bucket(bucketName).download_file(fileName, tempFilePath)
-        fileBytes = open(tempFilePath, "rb").read()
-        resp = textExtract.client.detect_document_text(
-            Document={
-                'Bytes': fileBytes,
-            }
-        )
-        textExtract.assert_textract_response(resp)
-        # logger.info(json.dumps(resp, indent=4, sort_keys=True, default=str))
 
-        # May be we want to skip lines with lower confidence ?
-        for block in resp['Blocks']:
-            if 'Text' in block:
-                if block['BlockType'] == 'LINE':
-                    blockText.append('{}\n'.format(block['Text']))
-                # else:
-                #     blockText.append(block['Text'])
+        # PDF needs async text extraction. Also file needs to be present on AWS S3 bucket
+        # Keeping PDF case separate so that at least we can integration test jpeg locally
+        # PDF uploads can then be manually tested since it needs AWS S3 bucket dependency
+        # We don't want to check AWS S3 locally since each GET is counted towards AWS bill
+        # And we GET S3 constantly during integration test to simulate S3 stream
+        if 'pdf' in filetype.guess(tempFilePath).extension:
+            resp = textExtract.client.start_document_text_detection(
+                DocumentLocation={
+                    'S3Object': {
+                        'Bucket': bucketName,
+                        'Name': fileName
+                    }
+                }
+            )
+            textExtract.assert_textract_response(resp)
+            jobId = resp["JobId"]
+            logger.info("Started text extraction job with id: {}".format(jobId))
+            if isJobComplete(jobId):
+                resp = getJobResults(jobId)
+                for resultPage in resp:
+                    blockText.extend(getBlockText(resultPage))
+            else:
+                logger.error('Text Extraction Job did not complete for file: {}'.format(fileName))
+                raise Exception('Async Text Extraction Failure')
+        else:
+            fileBytes = open(tempFilePath, "rb").read()
+            resp = textExtract.client.detect_document_text(
+                Document={
+                    'Bytes': fileBytes,
+                }
+            )
+            textExtract.assert_textract_response(resp)
+            # logger.info(json.dumps(resp, indent=4, sort_keys=True, default=str))
+            blockText.extend(getBlockText(resp))
 
     except Exception as exception:
         # Swallow exceptions during text extraction
         logger.exception('Ignoring text extraction for this document due to exception')
         logger.error('Error during text extraction: {}'.format(exception))
-        blockText.append('Error-during-text-extraction')
+        blockText.append('ErrorDuringTextExtraction')
         return ' '.join(blockText)
     finally:
         os.remove(tempFilePath)
 
     return ' '.join(blockText)
+
+
+def getBlockText(resp) -> List[str]:
+    blockText: List[str] = []
+
+    # May be we want to skip lines with lower confidence ?
+    for block in resp['Blocks']:
+        if 'Text' in block:
+            if block['BlockType'] == 'LINE':
+                blockText.append('{}\n'.format(block['Text']))
+    return blockText
+
+
+def isJobComplete(jobId) -> bool:
+    time.sleep(textExtract.async_wait_time_secs)
+    response = textExtract.client.get_document_text_detection(JobId=jobId)
+    textExtract.assert_textract_response(response)
+
+    status = response["JobStatus"]
+    logger.info("Job status: {}".format(status))
+
+    count = 0
+    while status == "IN_PROGRESS":
+        time.sleep(textExtract.async_wait_time_secs)
+        response = textExtract.client.get_document_text_detection(JobId=jobId)
+        textExtract.assert_textract_response(response)
+        status = response["JobStatus"]
+        logger.info("Attempt: {}, JobId: {}, Job status: {}".format(count, jobId, status))
+        count = count + 1
+        if count > textExtract.async_max_retry_limit:
+            logger.error('JobId: {} did not finish. Waited for {} * {} seconds'.format(
+                jobId,
+                textExtract.async_wait_time_secs,
+                textExtract.async_max_retry_limit)
+            )
+            break
+
+    returnValue: bool = status == 'SUCCEEDED'
+    if not returnValue:
+        logger.error(json.dumps(response, indent=4, sort_keys=True, default=str))
+
+    return returnValue
+
+
+def getJobResults(jobId):
+    pages = []
+
+    time.sleep(textExtract.async_wait_time_secs)
+
+    response = textExtract.client.get_document_text_detection(JobId=jobId)
+    textExtract.assert_textract_response(response)
+
+    pages.append(response)
+    logger.info("ResultSet page received: {}".format(len(pages)))
+    nextToken = None
+    if 'NextToken' in response:
+        nextToken = response['NextToken']
+
+    while nextToken:
+        time.sleep(textExtract.async_wait_time_secs)
+
+        response = textExtract.client.get_document_text_detection(JobId=jobId, NextToken=nextToken)
+        textExtract.assert_textract_response(response)
+
+        pages.append(response)
+        logger.info("ResultSet page received: {}".format(len(pages)))
+        nextToken = None
+        if 'NextToken' in response:
+            nextToken = response['NextToken']
+
+    return pages
 
 
 def moveFileToRepoBucket(srcBucketName: str, fileName: str, doc: Doc):

@@ -9,6 +9,8 @@ from app.shared import getLogger
 class TextExtract:
     client: botocore.client = None
     logger = None
+    async_wait_time_secs = 2
+    async_max_retry_limit = 60     # 2*60 = 120 seconds
 
     def assert_textract_response(self, response):
         if response is None:

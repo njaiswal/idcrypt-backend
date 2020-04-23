@@ -21,7 +21,7 @@ base_url = '/api/v1.0'
 
 logger = logging.getLogger(__name__)
 logger.setLevel('DEBUG')
-uploadBucketName = 'idcrypt-document-uploads-test'
+uploadBucketName = 'idcrypt-document-uploads172024-test'
 uploadErrorsBucketName = 'idcrypt-upload-errors-test'
 
 

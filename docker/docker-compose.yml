@@ -1,0 +1,33 @@
+version: '3.7'
+services:
+  elasticsearch:
+    image: elasticsearch:7.4.2
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+  kibana:
+    image: kibana:7.4.2
+    ports:
+      - "5601:5601"
+  dynamodb:
+    image: idcrypt-ubuntu
+    build:
+      context: .
+      dockerfile: ubuntu.Dockerfile
+    volumes:
+      - ${PWD}/../:/app:ro
+    command: serverless dynamodb start --stage test
+    ports:
+      - "8000:8000"
+  motos3:
+    image: idcrypt-ubuntu
+    command: moto_server s3 -H "0.0.0.0" -p4500
+    ports:
+      - "4500:4500"
+
+volumes:
+  esdata:

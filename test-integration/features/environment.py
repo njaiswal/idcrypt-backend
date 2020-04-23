@@ -64,13 +64,13 @@ def before_scenario(context, scenario):
 
     # Create upload bucket
     s3.client.create_bucket(
-        Bucket='idcrypt-document-uploads-test',
+        Bucket='idcrypt-document-uploads172024-test',
         CreateBucketConfiguration={
             'LocationConstraint': 'eu-west-1'
         }
     )
     waiter = s3.client.get_waiter('bucket_exists')
-    waiter.wait(Bucket='idcrypt-document-uploads-test')
+    waiter.wait(Bucket='idcrypt-document-uploads172024-test')
 
     # Create upload errors bucket
     s3.client.create_bucket(
