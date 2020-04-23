@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import tempfile
 import time
 from typing import Optional, List
@@ -67,7 +68,8 @@ def handler(event, context):
     errorsEncountered = []
 
     for record in event['Records']:
-        if record['eventName'] != 'ObjectCreated:Put':
+        # Match ObjectCreated:Put or ObjectCreated:CompleteMultipartUpload since any method could be used by Amplify
+        if re.match(r"^ObjectCreated:.+", record['eventName']) is None:
             logger.info('Ignoring {} event'.format(record['eventName']))
             ignoredRecords = ignoredRecords + 1
             continue
