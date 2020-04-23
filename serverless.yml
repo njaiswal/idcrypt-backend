@@ -199,6 +199,7 @@ functions:
     environment:
       ENV: ${opt:stage, 'dev'}
     handler: triggers/s3UploadsProcessor.handler
+    timeout: 300  # 5 minutes timeout since pdf documents are async textracted
     events:
       - s3:
           bucket: ${self:custom.s3UploadBucketName.${self:provider.stage}}
